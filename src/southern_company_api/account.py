@@ -1,0 +1,176 @@
+import dataclasses
+import datetime
+import json
+import math
+from typing import List
+
+import aiohttp
+
+from .company import Company
+
+
+@dataclasses.dataclass
+class DailyEnergyUsage:
+    date: datetime.datetime
+    usage: float
+    cost: float
+    low_temp: float
+    high_temp: float
+
+
+@dataclasses.dataclass
+class HourlyEnergyUsage:
+    time: datetime.datetime
+    usage: float
+    cost: float
+    temp: float
+
+
+class Account:
+    def __init__(self, name: str, primary: bool, number: str, company: Company):
+        self.name = name
+        self.primary = primary
+        self.number = number
+        self.company = company
+
+    async def get_service_point_number(self, jwt: str) -> str:
+        async with aiohttp.ClientSession() as session:
+            headers = {"Authorization": f"bearer {jwt}"}
+            # TODO: Is the /GPC for all customers or just GA power?
+            try:
+                async with session.get(
+                    f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
+                    f"getMPUBasicAccountInformation/{self.number}/GPC",
+                    headers=headers,
+                ) as resp:
+                    service_info = await resp.json()
+                    # TODO: Test with multiple accounts
+                    return service_info["Data"]["meterAndServicePoints"][0][
+                        "servicePointNumber"
+                    ]
+            except aiohttp.ClientConnectorError as e:
+                raise Exception(f"Failed to connect to api {e}")
+
+    async def get_daily_data(
+        self, start_date: datetime.datetime, end_date: datetime.datetime, jwt: str
+    ) -> List[DailyEnergyUsage]:
+        """Available 24 hours after"""
+        async with aiohttp.ClientSession() as session:
+            headers = {"Authorization": f"bearer {jwt}"}
+            params = {
+                "accountNumber": self.number,
+                "startDate": start_date.strftime("%m/%d/%Y 12:00:00 AM"),
+                "endDate": end_date.strftime("%m/%d/%Y 12:00:00 AM"),
+                "OPCO": self.company.name,
+                "ServicePointNumber": await self.get_service_point_number(jwt),
+                "intervalBehavior": "Automatic",
+            }
+            async with session.get(
+                f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
+                f"MPUData/{self.number}/Daily",
+                headers=headers,
+                params=params,
+            ) as resp:
+                if resp.status != 200:
+                    raise Exception(
+                        f"Failed to get JWT: {resp.status} {await resp.text()} "
+                        f"{headers}"
+                    )
+                else:
+                    response = await resp.json()
+                    data = json.loads(response["Data"]["Data"])
+                    day_maps = {}
+                    dates = [date for date in data["xAxis"]["labels"]]
+                    high_temps = [
+                        temp["y"] for temp in data["series"]["highTemp"]["data"]
+                    ]
+                    low_temps = [
+                        temp["y"] for temp in data["series"]["lowTemp"]["data"]
+                    ]
+                    for i, date in enumerate(dates):
+                        day_maps[date] = DailyEnergyUsage(
+                            # TODO: Determine timezone
+                            date=datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S"),
+                            usage=-1,
+                            cost=1,
+                            low_temp=low_temps[i],
+                            high_temp=high_temps[i],
+                        )
+                    # TODO: Zip weekday and weekend to make it simpler.
+                    for weekend_cost in data["series"]["weekdayCost"]["data"]:
+                        day_maps[weekend_cost["name"]].cost = weekend_cost["y"]
+                    for weekend_usage in data["series"]["weekdayUsage"]["data"]:
+                        day_maps[weekend_usage["name"]].usage = weekend_usage["y"]
+                    for weekday_cost in data["series"]["weekdayCost"]["data"]:
+                        day_maps[weekday_cost["name"]].cost = weekday_cost["y"]
+                    for weekday_usage in data["series"]["weekdayUsage"]["data"]:
+                        day_maps[weekday_usage["name"]].usage = weekday_usage["y"]
+                    return list(day_maps.values())
+
+    async def get_hourly_data(
+        self, start_date: datetime.datetime, end_date: datetime.datetime, jwt: str
+    ) -> List[HourlyEnergyUsage]:
+        """Available 48 hours after"""
+        if (end_date - start_date).days > 35:
+            number_of_chunks = math.ceil((end_date - start_date).days / 34)
+            cur_date = start_date
+            return_data = []
+            for i in range(number_of_chunks):
+                # TODO: Find start date of service and user that to make sure we don't try to get data from before
+                #  an account was made
+                try:
+                    return_data.extend(
+                        await self.get_hourly_data(
+                            cur_date, cur_date + datetime.timedelta(days=35), jwt
+                        )
+                    )
+                except Exception:
+                    cur_date = min(cur_date + datetime.timedelta(days=35), end_date)
+                    continue
+                cur_date = cur_date + datetime.timedelta(days=35)
+            return return_data
+        async with aiohttp.ClientSession() as session:
+            headers = {"Authorization": f"bearer {jwt}"}
+            params = {
+                "accountNumber": self.number,
+                "startDate": start_date.strftime("%m/%d/%Y 12:00:00 AM"),
+                "endDate": end_date.strftime("%m/%d/%Y 12:00:00 AM"),
+                "OPCO": self.company.name,
+                "ServicePointNumber": await self.get_service_point_number(jwt),
+                "intervalBehavior": "Automatic",
+            }
+            async with session.get(
+                f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
+                f"MPUData/{self.number}/Hourly",
+                headers=headers,
+                params=params,
+            ) as resp:
+                if resp.status != 200:
+                    raise Exception(
+                        f"Failed to get JWT: {resp.status} {await resp.text()} "
+                        f"{headers}"
+                    )
+                else:
+                    data = await resp.json()
+                    if data["Data"]["Data"] is None:
+                        raise Exception("Received no data back for usage.")
+                    data = json.loads(data["Data"]["Data"])
+                    times = [
+                        # TODO: Determine timezone
+                        datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
+                        for date in data["xAxis"]["labels"]
+                    ]
+                    costs = [cost["y"] for cost in data["series"]["cost"]["data"]]
+                    usage = [usage["y"] for usage in data["series"]["usage"]["data"]]
+                    temps = [temp["y"] for temp in data["series"]["temp"]["data"]]
+                    hourly_usage = []
+                    for i in range(len(costs)):
+                        hourly_usage.append(
+                            HourlyEnergyUsage(
+                                time=times[i],
+                                cost=costs[i],
+                                usage=usage[i],
+                                temp=temps[i],
+                            )
+                        )
+                    return hourly_usage

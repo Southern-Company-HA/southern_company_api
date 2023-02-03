@@ -1,0 +1,19 @@
+# Changes here will be overwritten by Copier
+_commit: 9dfc880
+_src_path: gh:browniebroke/pypackage-template
+add_me_as_contributor: true
+copyright_year: '2022'
+documentation: false
+email: conway220@gmail.com
+full_name: Luke
+github_username: Lash-L
+initial_commit: false
+open_source_license: MIT
+package_name: southern_company_api
+project_name: Southern Company API
+project_short_description: Control Southern company websites with this api
+project_slug: southern-company-api
+run_poetry_install: false
+setup_github: false
+setup_pre_commit: true
+

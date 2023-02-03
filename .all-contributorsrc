@@ -1,0 +1,27 @@
+{
+  "projectName": "southern-company-api",
+  "projectOwner": "Lash-L",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 80,
+  "commit": true,
+  "commitConvention": "angular",
+  "contributors": [
+    {
+      "login": "Lash-L",
+      "name": "Luke",
+      "avatar_url": "https://avatars.githubusercontent.com/u/20257911?v=4",
+      "profile": "https://github.com/Lash-L",
+      "contributions": [
+        "code",
+        "ideas",
+        "doc"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "skipCi": true
+}
