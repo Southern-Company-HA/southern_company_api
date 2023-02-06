@@ -4,12 +4,23 @@ from typing import List
 
 import aiohttp as aiohttp
 
-from .account import Account
+from southern_company_api.account import Account
+
 from .company import COMPANY_MAP, Company
-from .exceptions import CantReachSouthernCompany, InvalidLogin
+from .exceptions import (
+    AccountFailure,
+    CantReachSouthernCompany,
+    InvalidLogin,
+    NoJwtTokenFound,
+    NoScTokenFound,
+)
 
 
 async def get_request_verification_token() -> str:
+    """
+    Get the request verification token, which allows us to get a login session
+    :return: the verification token
+    """
     try:
         async with aiohttp.ClientSession() as session:
             http_response = await session.get(
@@ -18,7 +29,7 @@ async def get_request_verification_token() -> str:
             login_page = await http_response.text()
             matches = re.findall(r'data-aft="(\S+)"', login_page)
     except Exception as error:
-        raise CantReachSouthernCompany(error)
+        raise CantReachSouthernCompany() from error
     return matches[0]
 
 
@@ -32,6 +43,9 @@ class SouthernCompanyAPI:
         self.accounts: typing.Optional[List[Account]] = None
 
     async def connect(self) -> None:
+        """
+        Connects to Southern company and gets all accounts
+        """
         self.request_token = await get_request_verification_token()
         self.sc = await self._get_sc_web_token()
         self.jwt = await self.get_jwt()
@@ -44,9 +58,9 @@ class SouthernCompanyAPI:
         return True
 
     async def _get_sc_web_token(self) -> str:
-        # Grab a ScWebToken by log in
+        """Gets a sc_web_token which we get from a successful log in"""
         if self.request_token is None:
-            raise Exception("Cannot get sc web token without verification token")
+            await get_request_verification_token()
         headers = {
             "Content-Type": "application/json; charset=utf-8",
             "RequestVerificationToken": self.request_token,
@@ -74,11 +88,11 @@ class SouthernCompanyAPI:
             else:
                 return sc_data.group(1)
         else:
-            raise Exception("Sc Web token not found")
+            raise NoScTokenFound("Login request did not return a sc token")
 
     async def _get_secondary_sc_token(self) -> str:
         if self.sc is None:
-            raise Exception("can't get jwt without sc_web_token")
+            await self._get_sc_web_token()
         data = {"ScWebToken": self.sc}
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -88,7 +102,7 @@ class SouthernCompanyAPI:
             ) as resp:
                 # Checking for unsuccessful login
                 if resp.status != 200:
-                    raise Exception(
+                    raise NoScTokenFound(
                         f"Failed to get secondary ScWebToken: {resp.status} "
                         f"{resp.headers} {data}"
                     )
@@ -104,13 +118,13 @@ class SouthernCompanyAPI:
                     if swtmatches and swtmatches.group(1):
                         swtoken = swtmatches.group(1)
                     else:
-                        raise Exception(
+                        raise NoScTokenFound(
                             "Failed to get secondary ScWebToken: Could not find any "
                             "token matches in headers"
                         )
                 else:
-                    raise Exception(
-                        "Failed to get secondary ScWebToken: No Cookies were sent back"
+                    raise NoScTokenFound(
+                        "Failed to get secondary ScWebToken: No cookies were sent back."
                     )
         return swtoken
 
@@ -126,11 +140,10 @@ class SouthernCompanyAPI:
                 headers=headers,
             ) as resp:
                 if resp.status != 200:
-                    raise Exception(
+                    raise NoJwtTokenFound(
                         f"Failed to get JWT: {resp.status} {await resp.text()} "
                         f"{headers}"
                     )
-
                 # Regex to parse JWT out of headers
                 regex = re.compile(r"ScJwtToken=(\S*);", re.IGNORECASE)
 
@@ -143,12 +156,14 @@ class SouthernCompanyAPI:
                     if matches and matches.group(1):
                         token = matches.group(1)
                     else:
-                        raise Exception(
+                        raise NoJwtTokenFound(
                             "Failed to get JWT: Could not find any token matches in "
                             "headers"
                         )
                 else:
-                    raise Exception("Failed to get JWT: No Cookies were sent back")
+                    raise NoJwtTokenFound(
+                        "Failed to get JWT: No cookies were sent back."
+                    )
 
         # Returning JWT
         self.jwt = token
@@ -156,7 +171,7 @@ class SouthernCompanyAPI:
 
     async def get_accounts(self) -> List[Account]:
         if self.jwt is None:
-            raise Exception("can't get accounts without jwt")
+            await self.get_jwt()
         headers = {"Authorization": f"bearer {self.jwt}"}
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -165,7 +180,7 @@ class SouthernCompanyAPI:
                 headers=headers,
             ) as resp:
                 if resp.status != 200:
-                    raise Exception("failed to get accounts")
+                    raise AccountFailure("failed to get accounts")
                 account_json = await resp.json()
                 accounts = []
                 for account in account_json["Data"]:

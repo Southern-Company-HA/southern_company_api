@@ -2,11 +2,13 @@ import dataclasses
 import datetime
 import json
 import math
+import typing
 from typing import List
 
 import aiohttp
 
 from .company import Company
+from .exceptions import CantReachSouthernCompany, UsageDataFailure
 
 
 @dataclasses.dataclass
@@ -21,9 +23,9 @@ class DailyEnergyUsage:
 @dataclasses.dataclass
 class HourlyEnergyUsage:
     time: datetime.datetime
-    usage: float
-    cost: float
-    temp: float
+    usage: typing.Optional[float]
+    cost: typing.Optional[float]
+    temp: typing.Optional[float]
 
 
 class Account:
@@ -32,6 +34,8 @@ class Account:
         self.primary = primary
         self.number = number
         self.company = company
+        self.hourly_data: typing.Dict[str, HourlyEnergyUsage] = {}
+        self.daily_data: typing.Dict[str, DailyEnergyUsage] = {}
 
     async def get_service_point_number(self, jwt: str) -> str:
         async with aiohttp.ClientSession() as session:
@@ -48,19 +52,20 @@ class Account:
                     return service_info["Data"]["meterAndServicePoints"][0][
                         "servicePointNumber"
                     ]
-            except aiohttp.ClientConnectorError as e:
-                raise Exception(f"Failed to connect to api {e}")
+            except aiohttp.ClientConnectorError as err:
+                raise CantReachSouthernCompany("Failed to connect to api") from err
 
     async def get_daily_data(
         self, start_date: datetime.datetime, end_date: datetime.datetime, jwt: str
     ) -> List[DailyEnergyUsage]:
         """Available 24 hours after"""
+        """This is not really tested yet."""
         async with aiohttp.ClientSession() as session:
             headers = {"Authorization": f"bearer {jwt}"}
             params = {
                 "accountNumber": self.number,
                 "startDate": start_date.strftime("%m/%d/%Y 12:00:00 AM"),
-                "endDate": end_date.strftime("%m/%d/%Y 12:00:00 AM"),
+                "endDate": end_date.strftime("%m/%d/%Y 11:59:59 PM"),
                 "OPCO": self.company.name,
                 "ServicePointNumber": await self.get_service_point_number(jwt),
                 "intervalBehavior": "Automatic",
@@ -72,9 +77,8 @@ class Account:
                 params=params,
             ) as resp:
                 if resp.status != 200:
-                    raise Exception(
-                        f"Failed to get JWT: {resp.status} {await resp.text()} "
-                        f"{headers}"
+                    raise UsageDataFailure(
+                        f"Failed to get daily data: {resp.status} {headers}"
                     )
                 else:
                     response = await resp.json()
@@ -124,7 +128,7 @@ class Account:
                             cur_date, cur_date + datetime.timedelta(days=35), jwt
                         )
                     )
-                except Exception:
+                except UsageDataFailure:
                     cur_date = min(cur_date + datetime.timedelta(days=35), end_date)
                     continue
                 cur_date = cur_date + datetime.timedelta(days=35)
@@ -146,31 +150,33 @@ class Account:
                 params=params,
             ) as resp:
                 if resp.status != 200:
-                    raise Exception(
-                        f"Failed to get JWT: {resp.status} {await resp.text()} "
-                        f"{headers}"
+                    raise UsageDataFailure(
+                        f"Failed to get hourly data: {resp.status} {headers}"
                     )
                 else:
                     data = await resp.json()
                     if data["Data"]["Data"] is None:
-                        raise Exception("Received no data back for usage.")
+                        raise UsageDataFailure("Received no data back for usage.")
                     data = json.loads(data["Data"]["Data"])
-                    times = [
+                    return_dates = []
+                    for date in data["xAxis"]["labels"]:
                         # TODO: Determine timezone
-                        datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
-                        for date in data["xAxis"]["labels"]
-                    ]
-                    costs = [cost["y"] for cost in data["series"]["cost"]["data"]]
-                    usage = [usage["y"] for usage in data["series"]["usage"]["data"]]
-                    temps = [temp["y"] for temp in data["series"]["temp"]["data"]]
-                    hourly_usage = []
-                    for i in range(len(costs)):
-                        hourly_usage.append(
-                            HourlyEnergyUsage(
-                                time=times[i],
-                                cost=costs[i],
-                                usage=usage[i],
-                                temp=temps[i],
-                            )
+                        parsed_date = datetime.datetime.strptime(
+                            date, "%Y-%m-%dT%H:%M:%S"
                         )
-                    return hourly_usage
+                        self.hourly_data[date] = HourlyEnergyUsage(
+                            time=parsed_date, usage=None, cost=None, temp=None
+                        )
+                        return_dates.append(self.hourly_data[date])
+                    # costs and temps can be different lengths?
+                    for cost in data["series"]["cost"]["data"]:
+                        self.hourly_data[cost["name"]].cost = cost["y"]
+                    for cost in data["series"]["costDelayed"]["data"]:
+                        self.hourly_data[cost["name"]].cost = cost["y"]
+                    for usage in data["series"]["usage"]["data"]:
+                        self.hourly_data[usage["name"]].usage = usage["y"]
+                    for usage in data["series"]["usageDelayed"]["data"]:
+                        self.hourly_data[usage["name"]].usage = usage["y"]
+                    for temp in data["series"]["temp"]["data"]:
+                        self.hourly_data[temp["name"]].temp = temp["y"]
+                    return return_dates

@@ -10,5 +10,13 @@ class NoJwtTokenFound(Exception):
     pass
 
 
-class NoSwcTokenFound(Exception):
+class NoScTokenFound(Exception):
+    pass
+
+
+class AccountFailure(Exception):
+    pass
+
+
+class UsageDataFailure(Exception):
     pass
