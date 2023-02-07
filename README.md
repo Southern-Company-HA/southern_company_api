@@ -1,11 +1,11 @@
 # Southern Company API
 
 <p align="center">
-  <a href="https://github.com/Lash-L/southern-company-api/actions/workflows/ci.yml?query=branch%3Amain">
-    <img src="https://img.shields.io/github/actions/workflow/status/Lash-L/southern-company-api/ci.yml?branch=main&label=CI&logo=github&style=flat-square" alt="CI Status" >
+  <a href="https://github.com/Lash-L/southern_company_api/actions/workflows/ci.yml?query=branch%3Amain">
+    <img src="https://img.shields.io/github/actions/workflow/status/Lash-L/southern_company_api/ci.yml?branch=main&label=CI&logo=github&style=flat-square" alt="CI Status" >
   </a>
-  <a href="https://codecov.io/gh/Lash-L/southern-company-api">
-    <img src="https://img.shields.io/codecov/c/github/Lash-L/southern-company-api.svg?logo=codecov&logoColor=fff&style=flat-square" alt="Test coverage percentage">
+  <a href="https://codecov.io/gh/Lash-L/southern_company_api">
+    <img src="https://img.shields.io/codecov/c/github/Lash-L/southern_company_api.svg?logo=codecov&logoColor=fff&style=flat-square" alt="Test coverage percentage">
   </a>
 </p>
 <p align="center">
@@ -46,7 +46,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Lash-L"><img src="https://avatars.githubusercontent.com/u/20257911?v=4?s=80" width="80px;" alt="Luke"/><br /><sub><b>Luke</b></sub></a><br /><a href="https://github.com/Lash-L/southern-company-api/commits?author=Lash-L" title="Code">💻</a> <a href="#ideas-Lash-L" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Lash-L/southern-company-api/commits?author=Lash-L" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Lash-L"><img src="https://avatars.githubusercontent.com/u/20257911?v=4?s=80" width="80px;" alt="Luke"/><br /><sub><b>Luke</b></sub></a><br /><a href="https://github.com/Lash-L/southern_company_api/commits?author=Lash-L" title="Code">💻</a> <a href="#ideas-Lash-L" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Lash-L/southern_company_api/commits?author=Lash-L" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>
