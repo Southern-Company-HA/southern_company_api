@@ -90,7 +90,7 @@ class SouthernCompanyAPI:
         else:
             raise NoScTokenFound("Login request did not return a sc token")
 
-    async def _get_secondary_sc_token(self) -> str:
+    async def _get_southern_jwt_cookie(self) -> str:
         if self.sc is None:
             await self._get_sc_web_token()
         data = {"ScWebToken": self.sc}
@@ -107,8 +107,8 @@ class SouthernCompanyAPI:
                         f"{resp.headers} {data}"
                     )
                 # Regex to parse JWT out of headers
-                swtregex = re.compile(r"ScWebToken=(\S*);", re.IGNORECASE)
-
+                # NOTE: This used to be ScWebToken before 02/07/2023
+                swtregex = re.compile(r"SouthernJwtCookie=(\S*);", re.IGNORECASE)
                 # Parsing response header to get token
                 swtcookies = resp.headers.get("set-cookie")
                 if swtcookies:
@@ -130,9 +130,10 @@ class SouthernCompanyAPI:
 
     async def get_jwt(self) -> str:
         # Trading ScWebToken for Jwt
-        swtoken = await self._get_secondary_sc_token()
+        swtoken = await self._get_southern_jwt_cookie()
         # Now fetch JWT after secondary ScWebToken
-        headers = {"Cookie": f"ScWebToken={swtoken}"}
+        # NOTE: This used to be ScWebToken before 02/07/2023
+        headers = {"Cookie": f"SouthernJwtCookie={swtoken}"}
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 "https://customerservice2.southerncompany.com/Account/LoginValidated/"
