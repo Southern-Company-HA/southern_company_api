@@ -134,6 +134,7 @@ class Account:
                 cur_date = cur_date + datetime.timedelta(days=35)
             return return_data
         async with aiohttp.ClientSession() as session:
+            # Needs to check if the data already exist in self.hourly_data to avoid making an unneeded call.
             headers = {"Authorization": f"bearer {jwt}"}
             params = {
                 "accountNumber": self.number,
