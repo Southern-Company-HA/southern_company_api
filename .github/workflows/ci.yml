@@ -62,8 +62,6 @@ jobs:
         with:
           fail_ci_if_error: true
 
-
-
   release:
     runs-on: ubuntu-latest
     environment: release
