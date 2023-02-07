@@ -19,6 +19,13 @@ async def test_get_request_verification_token():
     assert len(token) > 1
 
 
+# @pytest.mark.asyncio
+# async def test_get_request_verification_token_fail():
+#     with pytest.raises(CantReachSouthernCompany):
+#         with patch("aiohttp.ClientSession"):
+#             await get_request_verification_token()
+#
+#
 @pytest.mark.asyncio
 async def test_ga_power_get_sc_web_token():
     with patch(
@@ -30,6 +37,9 @@ async def test_ga_power_get_sc_web_token():
         response_token = await sca._get_sc_web_token()
         assert response_token == "sample_sc_token"
 
+
+# async def test_get_sc_web_token_fail():
+#
 
 # @pytest.mark.asyncio
 # async def test_ga_power_get_secondary_sc_token():
