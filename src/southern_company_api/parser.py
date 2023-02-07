@@ -12,6 +12,7 @@ from .exceptions import (
     CantReachSouthernCompany,
     InvalidLogin,
     NoJwtTokenFound,
+    NoRequestTokenFound,
     NoScTokenFound,
 )
 
@@ -30,6 +31,8 @@ async def get_request_verification_token() -> str:
             matches = re.findall(r'data-aft="(\S+)"', login_page)
     except Exception as error:
         raise CantReachSouthernCompany() from error
+    if len(matches) < 1:
+        raise NoRequestTokenFound()
     return matches[0]
 
 
@@ -60,7 +63,7 @@ class SouthernCompanyAPI:
     async def _get_sc_web_token(self) -> str:
         """Gets a sc_web_token which we get from a successful log in"""
         if self.request_token is None:
-            await get_request_verification_token()
+            self.request_token = await get_request_verification_token()
         headers = {
             "Content-Type": "application/json; charset=utf-8",
             "RequestVerificationToken": self.request_token,
@@ -92,7 +95,7 @@ class SouthernCompanyAPI:
 
     async def _get_southern_jwt_cookie(self) -> str:
         if self.sc is None:
-            await self._get_sc_web_token()
+            self.sc = await self._get_sc_web_token()
         data = {"ScWebToken": self.sc}
         async with aiohttp.ClientSession() as session:
             async with session.post(

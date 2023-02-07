@@ -109,3 +109,50 @@ ga_power_sample_sc_response = {
 #     "Strict-Transport-Security": "max-age=15552000",
 #     "X-Content-Type-Options": "nosniff",
 # }
+
+
+ga_power_sample_account_response = {
+    "StatusCode": 200,
+    "Message": "Success",
+    "MessageType": 0,
+    "Data": [
+        {
+            "UserSid": "sample-user",
+            "AccountNumber": 1,
+            "Company": 2,
+            "AccountType": 0,
+            "Description": "Home Energy",
+            "PrimaryAccount": "Y",
+            "IsCurrentViewAccount": False,
+            "IsNicknameChanged": False,
+            "IsPrimaryAccountChanged": False,
+            "DataPresentmentPilotParticipant": "",
+            "BillStatus": 0,
+            "IsLocked": False,
+            "AccountLockedUntil": None,
+            "IsPinRequired": False,
+            "IsPinValidated": False,
+            "LocalAddress": {
+                "Number": "0000",
+                "Structure": "",
+                "Note": "",
+                "PreDirection": "",
+                "StreetName": "RANDOM_STREET",
+                "PostDirection": "",
+                "StreetType": "LANE",
+                "AddressLine1": "0000 RANDOM_STREET LANE ",
+                "AddressLine2": "",
+                "City": "SOMEWHERE",
+                "State": "GA",
+                "Zip": "00000",
+                "Country": None,
+            },
+            "PremiseNumber": None,
+            "IsPrePayAccount": False,
+            "IsInGulfDivestiturePilot": False,
+            "EixLinkedClients": [],
+            "IsEixConsented": False,
+        }
+    ],
+    "IsScApiResult": True,
+}

@@ -6,6 +6,10 @@ class CantReachSouthernCompany(Exception):
     pass
 
 
+class NoRequestTokenFound(Exception):
+    pass
+
+
 class NoJwtTokenFound(Exception):
     pass
 
