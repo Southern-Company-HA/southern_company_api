@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.0.4 (2023-02-07)
+### Fix
+* Lint for ci ([`286bc2d`](https://github.com/Lash-L/southern_company_api/commit/286bc2d7474da1d9478e63828b137d439e0dccc1))
+
 ## v0.0.3 (2023-02-07)
 ### Fix
 * Set aiohttp to 3.8.1 ([`dd0f876`](https://github.com/Lash-L/southern_company_api/commit/dd0f876eed8a25aff19e79950e700effc68c3697))

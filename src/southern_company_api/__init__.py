@@ -2,7 +2,7 @@ from .account import Account, DailyEnergyUsage, HourlyEnergyUsage
 from .company import COMPANY_MAP, Company
 from .parser import SouthernCompanyAPI, get_request_verification_token
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 __all__ = [
     "Account",
