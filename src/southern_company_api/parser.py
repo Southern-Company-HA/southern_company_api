@@ -202,4 +202,5 @@ class SouthernCompanyAPI:
                             company=COMPANY_MAP.get(account["Company"], Company.GPC),
                         )
                     )
+        self.accounts = accounts
         return accounts
