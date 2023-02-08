@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.0 (2023-02-08)
+### Feature
+* Added new tests ([`501ba1a`](https://github.com/Lash-L/southern_company_api/commit/501ba1a67bd5cd3459bafcc9f65beac547f7fbd5))
+
+### Fix
+* Resolved issue with sc_token ([`9138c10`](https://github.com/Lash-L/southern_company_api/commit/9138c10610f359fdaa9fe712fdd870ee7d8cf6e9))
+
 ## v0.0.4 (2023-02-07)
 ### Fix
 * Lint for ci ([`286bc2d`](https://github.com/Lash-L/southern_company_api/commit/286bc2d7474da1d9478e63828b137d439e0dccc1))
