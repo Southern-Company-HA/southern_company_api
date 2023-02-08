@@ -124,6 +124,44 @@ ga_power_sample_account_response = {
 }
 
 
+test_get_hourly_usage = {
+    "StatusCode": 200,
+    "Message": "Successfully retrieved My Power Usage data for Hourly Graph",
+    "MessageType": 0,
+    "Data": {
+        "Data": '{"xAxis":{"labels":["2023-02-04T22:50:11","2023-02-04T23:50:11"]}'
+        ',"series":{"cost":{"data":[{"x":1,"y":0.05,"name":"2023-02-04T23:50:11","resolution":"hourly"}]}'
+        ',"usage":{"data":[{"x":1,"y":0.32,"name":"2023-02-04T23:50:11","resolution":"hourly"}]},'
+        '"costDelayed":{"data":[{"x":0,"y":0.05,"name":"2023-02-04T22:50:11","resolution":"hourly"}]},'
+        '"usageDelayed":{"data":[{"x":0,"y":0.32,"name":"2023-02-04T22:50:11","resolution":"hourly"}]},'
+        '"temp":{"data":[{"x":0,"y":44.099998474121094,"name":"2023-02-04T22:50:11","resolution":"hourly"},'
+        '{"x":1,"y":44.099998474121094,"name":"2023-02-04T23:50:11","resolution":"hourly"}]},'
+        '"solarGeneration":{"data":[]},"solarGenerationDelayed":{"data":[]}}}',
+        "ProjectedBillAmountHigh": 0.0,
+        "ProjectedBillAmountLow": 0.0,
+        "ProjectedUsageHigh": 0.0,
+        "ProjectedUsageLow": 0.0,
+        "AverageDailyCost": 0.0,
+        "AverageDailyUsage": 0.0,
+        "AverageDailyReceived": 0.0,
+        "Days": 0.0,
+        "DollarsToDate": 0.0,
+        "TotalkWhUsed": 0.0,
+        "TotalkWhReceived": 0.0,
+        "HasData": True,
+        "HasEstimatedBill": False,
+        "IsPartialMonth": False,
+        "AlertThreshold": 0,
+        "AlertThresholdExceeded": False,
+        "IsSolarActive": False,
+        "ProjectedReceivedHigh": 0.0,
+        "ProjectedReceivedLow": 0.0,
+    },
+    "ModelErrors": [],
+    "IsScApiResult": True,
+}
+
+
 class MockResponse:
     def __init__(self, text, status, mock_headers, json):
         self._text = text
