@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.1 (2023-02-08)
+### Fix
+* Set accounts to member variable ([`9cb81f8`](https://github.com/Lash-L/southern_company_api/commit/9cb81f86e034cdd718fc8cd5feacecc642bb3795))
+
 ## v0.2.0 (2023-02-08)
 ### Feature
 * Add monthly usage ([`7ae4a6c`](https://github.com/Lash-L/southern_company_api/commit/7ae4a6c7a00190ff91378723170a517439a69212))
