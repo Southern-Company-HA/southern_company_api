@@ -161,6 +161,36 @@ test_get_hourly_usage = {
     "IsScApiResult": True,
 }
 
+test_get_month_data = {
+    "StatusCode": 200,
+    "Message": "Successfully retrieved My Power Usage data for Daily Graph",
+    "MessageType": 0,
+    "Data": {
+        "Data": "{}",
+        "ProjectedBillAmountHigh": 91.0,
+        "ProjectedBillAmountLow": 60.0,
+        "ProjectedUsageHigh": 629.0,
+        "ProjectedUsageLow": 419.0,
+        "AverageDailyCost": 2.79,
+        "AverageDailyUsage": 19.17,
+        "AverageDailyReceived": 0.0,
+        "Days": 27.0,
+        "DollarsToDate": 13.974766406622413,
+        "TotalkWhUsed": 97.0,
+        "TotalkWhReceived": 0.0,
+        "HasData": True,
+        "HasEstimatedBill": True,
+        "IsPartialMonth": True,
+        "AlertThreshold": 0,
+        "AlertThresholdExceeded": False,
+        "IsSolarActive": False,
+        "ProjectedReceivedHigh": 0.0,
+        "ProjectedReceivedLow": 0.0,
+    },
+    "ModelErrors": [],
+    "IsScApiResult": True,
+}
+
 
 class MockResponse:
     def __init__(self, text, status, mock_headers, json):
