@@ -81,7 +81,6 @@ class SouthernCompanyAPI:
             async with session.post(
                 "https://webauth.southernco.com/api/login", json=data, headers=headers
             ) as response:
-                print(response.status)
                 if response.status != 200:
                     raise CantReachSouthernCompany()
                 try:

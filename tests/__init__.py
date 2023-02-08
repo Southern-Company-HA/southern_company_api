@@ -70,46 +70,12 @@ ga_power_sample_sc_response = {
     "modelErrors": None,
 }
 
-# ga_power_sample_second_swt_token = {
-#     "Cache-Control": "no-cache",
-#     "Pragma": "no-cache",
-#     "Transfer-Encoding": "chunked",
-#     "Content-Type": "text/html",
-#     "Expires": "Thu, 01 Jan 1970 00:00:00 GMT",
-#     "Server": "Kestrel",
-#     "Set-Cookie": "ScWebToken=sample_sc_token; path=/; secure; samesite=lax; httponly",
-#     "X-Content-Type-Options": "nosniff",
-#     "X-Frame-Options": "SAMEORIGIN",
-#     "X-Server-Date": "1/30/2023",
-#     "x-transaction-id": "tran_id",
-#     "X-Powered-By": "ASP.NET",
-#     "X-OneAgent-JS-Injection": "true",
-#     "X-ruxit-JS-Agent": "true",
-#     "Server-Timing": 'dtSInfo;desc="0", dtRpid;desc="1209821071"',
-#     "Set-Cookie": "dtCookie=sample_cookie; Path=/; Domain=.southerncompany.com",
-#     "Date": "Mon, 30 Jan 2023 17:41:06 GMT",
-#     "Strict-Transport-Security": "max-age=15552000",
-#     "X-Content-Type-Options": "nosniff",
-# }
-#
-# ga_power_sample_jwt_header = {
-#     "Cache-Control": "no-cache,no-store",
-#     "Transfer-Encoding": "chunked",
-#     "Content-Type": "application/json; charset=utf-8",
-#     "Server": "Kestrel",
-#     "Set-Cookie": "ScJwtToken=sample_token; path=/",
-#     "X-Content-Type-Options": "nosniff",
-#     "X-Frame-Options": "Deny",
-#     "X-Server-Date": "1/30/2023",
-#     "x-transaction-id": "tran_id",
-#     "X-Powered-By": "ASP.NET",
-#     "Server-Timing": 'dtSInfo;desc="0", dtRpid;desc="335987058"',
-#     "Set-Cookie": "dtCookie=sample_cookie; Path=/; Domain=.southerncompany.com",
-#     "Date": "Mon, 30 Jan 2023 17:49:41 GMT",
-#     "Strict-Transport-Security": "max-age=15552000",
-#     "X-Content-Type-Options": "nosniff",
-# }
+ga_power_southern_jwt_cookie_header = {
+    "Cache-Control": "no-cache,no-store",
+    "set-cookie": "SouthernJwtCookie=sample_cookie; path=/; secure; samesite=lax; httponly",
+}
 
+ga_power_jwt_header = {"set-cookie": "ScJwtToken=sample_jwt; path=/"}
 
 ga_power_sample_account_response = {
     "StatusCode": 200,
@@ -156,3 +122,27 @@ ga_power_sample_account_response = {
     ],
     "IsScApiResult": True,
 }
+
+
+class MockResponse:
+    def __init__(self, text, status, mock_headers, json):
+        self._text = text
+        self._json = json
+        self.status = status
+        self._headers = mock_headers
+
+    async def text(self):
+        return self._text
+
+    async def json(self):
+        return self._json
+
+    @property
+    def headers(self):
+        return self._headers
+
+    async def __aexit__(self, exc_type, exc, tb):
+        pass
+
+    async def __aenter__(self):
+        return self

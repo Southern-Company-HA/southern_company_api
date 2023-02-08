@@ -13,7 +13,13 @@ from src.southern_company_api.parser import (
     SouthernCompanyAPI,
     get_request_verification_token,
 )
-from tests import ga_power_sample_account_response, ga_power_sample_sc_response
+from tests import (
+    MockResponse,
+    ga_power_jwt_header,
+    ga_power_sample_account_response,
+    ga_power_sample_sc_response,
+    ga_power_southern_jwt_cookie_header,
+)
 
 
 def test_can_create():
@@ -63,10 +69,8 @@ async def test_can_authenticate():
 
 @pytest.mark.asyncio
 async def test_ga_power_get_sc_web_token():
-    with patch(
-        "southern_company_api.parser.aiohttp.ClientResponse.json",
-        return_value=ga_power_sample_sc_response,
-    ):
+    with patch("southern_company_api.parser.aiohttp.ClientSession.post") as mock_post:
+        mock_post.return_value = MockResponse("", 200, "", ga_power_sample_sc_response)
         sca = SouthernCompanyAPI("", "")
         sca.request_token = "sample"
         response_token = await sca._get_sc_web_token()
@@ -80,21 +84,32 @@ async def test_get_sc_web_token_wrong_login():
         await sca._get_sc_web_token()
 
 
-# @pytest.mark.asyncio
-# async def test_ga_power_get_secondary_sc_token():
-#     with patch("southern_company_api.parser.aiohttp.ClientResponse") as mocked_client:
-#         mocked_client.headers = ga_power_sample_second_swt_token
-#         mocked_client.status = 200
-#         sca = SouthernCompanyAPI("", "")
-#         sca.sc = ""
-#         token = await sca._get_secondary_sc_token()
-#         assert token == "sample_sc_token"
-#
-#
-# async def test_ga_power_get_secondary_jwt():
-#     pass
-#
-#
+@pytest.mark.asyncio
+async def test_ga_power_get_jwt_cookie():
+    with patch(
+        "src.southern_company_api.parser.aiohttp.ClientSession.post"
+    ) as mock_post:
+        mock_post.return_value = MockResponse(
+            "", 200, ga_power_southern_jwt_cookie_header, ""
+        )
+        sca = SouthernCompanyAPI("", "")
+        sca.sc = ""
+        token = await sca._get_southern_jwt_cookie()
+        assert token == "sample_cookie"
+
+
+@pytest.mark.asyncio
+async def test_ga_power_get_jwt():
+    with patch(
+        "src.southern_company_api.parser.aiohttp.ClientSession.get"
+    ) as mock_get, patch(
+        "src.southern_company_api.parser.SouthernCompanyAPI._get_southern_jwt_cookie"
+    ) as mock_get_cookie:
+        mock_get.return_value = MockResponse("", 200, ga_power_jwt_header, "")
+        mock_get_cookie.return_value.__aenter__.return_value = ""
+        sca = SouthernCompanyAPI("", "")
+        token = await sca.get_jwt()
+        assert token == "sample_jwt"
 
 
 @pytest.mark.asyncio
@@ -107,5 +122,4 @@ async def test_ga_power_get_accounts():
         sca = SouthernCompanyAPI("", "")
         sca.jwt = "sample"
         response_token: typing.List[Account] = await sca.get_accounts()
-        print(response_token)
         assert response_token[0].name == "Home Energy"
