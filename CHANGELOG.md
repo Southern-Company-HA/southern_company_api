@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.1.1 (2023-02-08)
+### Fix
+* Account hourly time ([`3cad045`](https://github.com/Lash-L/southern_company_api/commit/3cad0451a3cc23e5e3e5ddc8bd1187aeefd5d7a7))
+
 ## v0.1.0 (2023-02-08)
 ### Feature
 * Added new tests ([`501ba1a`](https://github.com/Lash-L/southern_company_api/commit/501ba1a67bd5cd3459bafcc9f65beac547f7fbd5))
