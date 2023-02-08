@@ -3,6 +3,7 @@ import typing
 from typing import List
 
 import aiohttp as aiohttp
+from aiohttp import ContentTypeError
 
 from southern_company_api.account import Account
 
@@ -80,9 +81,15 @@ class SouthernCompanyAPI:
             async with session.post(
                 "https://webauth.southernco.com/api/login", json=data, headers=headers
             ) as response:
-                connection = await response.json()
-        if connection["statusCode"] == 500:
-            raise InvalidLogin()
+                print(response.status)
+                if response.status != 200:
+                    raise CantReachSouthernCompany()
+                try:
+                    connection = await response.json()
+                except ContentTypeError as err:
+                    raise InvalidLogin from err
+                if connection["statusCode"] == 500:
+                    raise InvalidLogin()
         sc_regex = re.compile(r"NAME='ScWebToken' value='(\S+.\S+.\S+)'", re.IGNORECASE)
         sc_data = sc_regex.search(connection["data"]["html"])
         if sc_data and sc_data.group(1):
