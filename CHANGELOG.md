@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.3 (2023-02-08)
+### Fix
+* Made account not optional ([`22e6c8b`](https://github.com/Lash-L/southern_company_api/commit/22e6c8b0d58de96e00eb799a68ce34d875499a77))
+
 ## v0.2.2 (2023-02-08)
 ### Fix
 * Made accounts private ([`33a812a`](https://github.com/Lash-L/southern_company_api/commit/33a812ae767f2f654a999652fcfd6d1538804477))
