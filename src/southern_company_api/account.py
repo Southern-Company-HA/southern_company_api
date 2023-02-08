@@ -138,8 +138,8 @@ class Account:
             headers = {"Authorization": f"bearer {jwt}"}
             params = {
                 "accountNumber": self.number,
-                "startDate": start_date.strftime("%m/%d/%Y 12:00:00 AM"),
-                "endDate": end_date.strftime("%m/%d/%Y 12:00:00 AM"),
+                "startDate": start_date.strftime("%m/%d/%Y %H:%M:%S %p"),
+                "endDate": end_date.strftime("%m/%d/%Y %H:%M:%S %p"),
                 "OPCO": self.company.name,
                 "ServicePointNumber": await self.get_service_point_number(jwt),
                 "intervalBehavior": "Automatic",
