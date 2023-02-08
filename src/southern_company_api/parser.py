@@ -44,10 +44,10 @@ class SouthernCompanyAPI:
         self.jwt: typing.Optional[str] = None
         self.sc: typing.Optional[str] = None
         self.request_token: typing.Optional[str] = None
-        self._accounts: typing.Optional[List[Account]] = None
+        self._accounts: List[Account] = []
 
     @property
-    def accounts(self) -> typing.Optional[List[Account]]:
+    def accounts(self) -> List[Account]:
         return self._accounts
 
     async def connect(self) -> None:
