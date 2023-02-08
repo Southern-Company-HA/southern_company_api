@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.4 (2023-02-08)
+### Fix
+* Add timezone to datetime ([`2578d5f`](https://github.com/Lash-L/southern_company_api/commit/2578d5f80562f46bad40aa098aadabed88646df9))
+
 ## v0.2.3 (2023-02-08)
 ### Fix
 * Made account not optional ([`22e6c8b`](https://github.com/Lash-L/southern_company_api/commit/22e6c8b0d58de96e00eb799a68ce34d875499a77))
