@@ -177,6 +177,11 @@ class Account:
                         parsed_date = datetime.datetime.strptime(
                             date, "%Y-%m-%dT%H:%M:%S"
                         )
+                        parsed_date = parsed_date.replace(
+                            tzinfo=datetime.timezone(
+                                datetime.timedelta(hours=-5), "EST"
+                            )
+                        )
                         self.hourly_data[date] = HourlyEnergyUsage(
                             time=parsed_date, usage=None, cost=None, temp=None
                         )
