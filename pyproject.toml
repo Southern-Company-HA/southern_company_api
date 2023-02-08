@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "southern-company-api"
-version = "0.1.1"
+version = "0.2.0"
 description = "Control Southern company websites with this api"
 authors = ["Luke <conway220@gmail.com>"]
 license = "MIT"
