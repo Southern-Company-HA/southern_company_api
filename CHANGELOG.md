@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.2.2 (2023-02-08)
+### Fix
+* Made accounts private ([`33a812a`](https://github.com/Lash-L/southern_company_api/commit/33a812ae767f2f654a999652fcfd6d1538804477))
+
 ## v0.2.1 (2023-02-08)
 ### Fix
 * Set accounts to member variable ([`9cb81f8`](https://github.com/Lash-L/southern_company_api/commit/9cb81f86e034cdd718fc8cd5feacecc642bb3795))
