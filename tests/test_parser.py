@@ -123,3 +123,4 @@ async def test_ga_power_get_accounts():
         sca.jwt = "sample"
         response_token: typing.List[Account] = await sca.get_accounts()
         assert response_token[0].name == "Home Energy"
+        assert sca.accounts == response_token

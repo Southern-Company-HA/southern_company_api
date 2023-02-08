@@ -44,7 +44,11 @@ class SouthernCompanyAPI:
         self.jwt: typing.Optional[str] = None
         self.sc: typing.Optional[str] = None
         self.request_token: typing.Optional[str] = None
-        self.accounts: typing.Optional[List[Account]] = None
+        self._accounts: typing.Optional[List[Account]] = None
+
+    @property
+    def accounts(self) -> typing.Optional[List[Account]]:
+        return self._accounts
 
     async def connect(self) -> None:
         """
@@ -53,7 +57,7 @@ class SouthernCompanyAPI:
         self.request_token = await get_request_verification_token()
         self.sc = await self._get_sc_web_token()
         self.jwt = await self.get_jwt()
-        self.accounts = await self.get_accounts()
+        self._accounts = await self.get_accounts()
 
     async def authenticate(self) -> bool:
         """Determines if you can authenticate with Southern Company with given login"""
@@ -202,5 +206,5 @@ class SouthernCompanyAPI:
                             company=COMPANY_MAP.get(account["Company"], Company.GPC),
                         )
                     )
-        self.accounts = accounts
+        self._accounts = accounts
         return accounts
