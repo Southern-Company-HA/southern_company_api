@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.0 (2023-02-10)
+### Feature
+* Made tokens async props ([`a56487b`](https://github.com/Lash-L/southern_company_api/commit/a56487b4abd7a0668a3a735f125711e966cdfdf6))
+
+### Fix
+* Removed delayed data ([`a0f1f36`](https://github.com/Lash-L/southern_company_api/commit/a0f1f363816eec23f07c00e90592d0ddab946a90))
+
 ## v0.2.4 (2023-02-08)
 ### Fix
 * Add timezone to datetime ([`2578d5f`](https://github.com/Lash-L/southern_company_api/commit/2578d5f80562f46bad40aa098aadabed88646df9))
