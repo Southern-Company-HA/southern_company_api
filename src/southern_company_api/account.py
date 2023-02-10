@@ -189,11 +189,7 @@ class Account:
                     # costs and temps can be different lengths?
                     for cost in data["series"]["cost"]["data"]:
                         self.hourly_data[cost["name"]].cost = cost["y"]
-                    for cost in data["series"]["costDelayed"]["data"]:
-                        self.hourly_data[cost["name"]].cost = cost["y"]
                     for usage in data["series"]["usage"]["data"]:
-                        self.hourly_data[usage["name"]].usage = usage["y"]
-                    for usage in data["series"]["usageDelayed"]["data"]:
                         self.hourly_data[usage["name"]].usage = usage["y"]
                     for temp in data["series"]["temp"]["data"]:
                         self.hourly_data[temp["name"]].temp = temp["y"]
