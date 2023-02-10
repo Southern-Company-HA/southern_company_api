@@ -41,37 +41,57 @@ class SouthernCompanyAPI:
     def __init__(self, username: str, password: str):
         self.username = username
         self.password = password
-        self.jwt: typing.Optional[str] = None
-        self.sc: typing.Optional[str] = None
-        self.request_token: typing.Optional[str] = None
+        self._jwt: typing.Optional[str] = None
+        self._sc: typing.Optional[str] = None
+        self._request_token: typing.Optional[str] = None
         self._accounts: List[Account] = []
 
     @property
-    def accounts(self) -> List[Account]:
+    async def sc(self) -> typing.Optional[str]:
+        if self._sc is None:
+            await self._get_sc_web_token()
+        return self._sc
+
+    @property
+    async def accounts(self) -> List[Account]:
+        if len(self._accounts) == 0:
+            await self.get_accounts()
         return self._accounts
+
+    @property
+    async def jwt(self) -> typing.Optional[str]:
+        if self._jwt is None:
+            self._jwt = await self.get_jwt()
+        return self._jwt
+
+    @property
+    async def request_token(self) -> typing.Optional[str]:
+        if self._request_token is None:
+            self._request_token = await get_request_verification_token()
+        return self._request_token
 
     async def connect(self) -> None:
         """
         Connects to Southern company and gets all accounts
         """
-        self.request_token = await get_request_verification_token()
-        self.sc = await self._get_sc_web_token()
-        self.jwt = await self.get_jwt()
+        self._request_token = await get_request_verification_token()
+        self._sc = await self._get_sc_web_token()
+        self._jwt = await self.get_jwt()
         self._accounts = await self.get_accounts()
 
     async def authenticate(self) -> bool:
         """Determines if you can authenticate with Southern Company with given login"""
-        self.request_token = await get_request_verification_token()
-        self.sc = await self._get_sc_web_token()
+        self._request_token = await get_request_verification_token()
+        self._sc = await self._get_sc_web_token()
         return True
 
     async def _get_sc_web_token(self) -> str:
         """Gets a sc_web_token which we get from a successful log in"""
-        if self.request_token is None:
-            self.request_token = await get_request_verification_token()
+        if self._request_token is None:
+            self._request_token = await get_request_verification_token()
         headers = {
             "Content-Type": "application/json; charset=utf-8",
-            "RequestVerificationToken": self.request_token,
+            "RequestVerificationToken": self._request_token,
         }
 
         data = {
@@ -104,9 +124,9 @@ class SouthernCompanyAPI:
             raise NoScTokenFound("Login request did not return a sc token")
 
     async def _get_southern_jwt_cookie(self) -> str:
-        if self.sc is None:
-            self.sc = await self._get_sc_web_token()
-        data = {"ScWebToken": self.sc}
+        if self._sc is None:
+            self._sc = await self._get_sc_web_token()
+        data = {"ScWebToken": self._sc}
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://customerservice2.southerncompany.com/Account/LoginComplete?"
@@ -180,13 +200,13 @@ class SouthernCompanyAPI:
                     )
 
         # Returning JWT
-        self.jwt = token
+        self._jwt = token
         return token
 
     async def get_accounts(self) -> List[Account]:
-        if self.jwt is None:
+        if self._jwt is None:
             await self.get_jwt()
-        headers = {"Authorization": f"bearer {self.jwt}"}
+        headers = {"Authorization": f"bearer {self._jwt}"}
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 "https://customerservice2api.southerncompany.com/api/account/"

@@ -72,7 +72,7 @@ async def test_ga_power_get_sc_web_token():
     with patch("southern_company_api.parser.aiohttp.ClientSession.post") as mock_post:
         mock_post.return_value = MockResponse("", 200, "", ga_power_sample_sc_response)
         sca = SouthernCompanyAPI("", "")
-        sca.request_token = "sample"
+        sca._request_token = "sample"
         response_token = await sca._get_sc_web_token()
         assert response_token == "sample_sc_token"
 
@@ -93,7 +93,7 @@ async def test_ga_power_get_jwt_cookie():
             "", 200, ga_power_southern_jwt_cookie_header, ""
         )
         sca = SouthernCompanyAPI("", "")
-        sca.sc = ""
+        sca._sc = ""
         token = await sca._get_southern_jwt_cookie()
         assert token == "sample_cookie"
 
@@ -120,7 +120,7 @@ async def test_ga_power_get_accounts():
         )
         mock_get.return_value.__aenter__.return_value.status = 200
         sca = SouthernCompanyAPI("", "")
-        sca.jwt = "sample"
+        sca._jwt = "sample"
         response_token: typing.List[Account] = await sca.get_accounts()
         assert response_token[0].name == "Home Energy"
-        assert sca.accounts == response_token
+        assert sca._accounts == response_token
