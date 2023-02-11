@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.1 (2023-02-11)
+### Fix
+* Remove optional from properties ([`b6cc793`](https://github.com/Lash-L/southern_company_api/commit/b6cc7935547202801d92c8f3b68da640df65857a))
+
 ## v0.3.0 (2023-02-10)
 ### Feature
 * Made tokens async props ([`a56487b`](https://github.com/Lash-L/southern_company_api/commit/a56487b4abd7a0668a3a735f125711e966cdfdf6))
