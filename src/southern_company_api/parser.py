@@ -47,25 +47,25 @@ class SouthernCompanyAPI:
         self._accounts: List[Account] = []
 
     @property
-    async def sc(self) -> typing.Optional[str]:
+    async def sc(self) -> str:
         if self._sc is None:
-            await self._get_sc_web_token()
+            return await self._get_sc_web_token()
         return self._sc
 
     @property
     async def accounts(self) -> List[Account]:
         if len(self._accounts) == 0:
-            await self.get_accounts()
+            return await self.get_accounts()
         return self._accounts
 
     @property
-    async def jwt(self) -> typing.Optional[str]:
+    async def jwt(self) -> str:
         if self._jwt is None:
             self._jwt = await self.get_jwt()
         return self._jwt
 
     @property
-    async def request_token(self) -> typing.Optional[str]:
+    async def request_token(self) -> str:
         if self._request_token is None:
             self._request_token = await get_request_verification_token()
         return self._request_token
