@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.3 (2023-02-13)
+### Fix
+* Get_accounts to use property ([`0985457`](https://github.com/Lash-L/southern_company_api/commit/09854576d071ec4af761321d9b5c2858a86efe4c))
+
 ## v0.3.2 (2023-02-13)
 ### Fix
 * Jwt will refresh after 3 hours ([`a16f442`](https://github.com/Lash-L/southern_company_api/commit/a16f442681748cd4df57b7391d1d0f513527d54a))
