@@ -209,7 +209,7 @@ class SouthernCompanyAPI:
         return token
 
     async def get_accounts(self) -> List[Account]:
-        if self.jwt is None:
+        if await self.jwt is None:
             raise CantReachSouthernCompany()
         headers = {"Authorization": f"bearer {self._jwt}"}
         async with aiohttp.ClientSession() as session:
