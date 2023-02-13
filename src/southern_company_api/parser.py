@@ -1,3 +1,4 @@
+import datetime
 import re
 import typing
 from typing import List
@@ -42,6 +43,7 @@ class SouthernCompanyAPI:
         self.username = username
         self.password = password
         self._jwt: typing.Optional[str] = None
+        self._jwt_expiry: datetime.datetime = datetime.datetime.now()
         self._sc: typing.Optional[str] = None
         self._request_token: typing.Optional[str] = None
         self._accounts: List[Account] = []
@@ -60,7 +62,7 @@ class SouthernCompanyAPI:
 
     @property
     async def jwt(self) -> str:
-        if self._jwt is None:
+        if self._jwt is None or datetime.datetime.now() >= self._jwt_expiry:
             self._jwt = await self.get_jwt()
         return self._jwt
 
@@ -201,6 +203,9 @@ class SouthernCompanyAPI:
 
         # Returning JWT
         self._jwt = token
+        # We can get the exact expiration date from the jwt token, but I don't think it is needed. It should always be
+        # greater than 3 hours.
+        self._jwt_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
         return token
 
     async def get_accounts(self) -> List[Account]:
