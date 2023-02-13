@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.2 (2023-02-13)
+### Fix
+* Jwt will refresh after 3 hours ([`a16f442`](https://github.com/Lash-L/southern_company_api/commit/a16f442681748cd4df57b7391d1d0f513527d54a))
+
 ## v0.3.1 (2023-02-11)
 ### Fix
 * Remove optional from properties ([`b6cc793`](https://github.com/Lash-L/southern_company_api/commit/b6cc7935547202801d92c8f3b68da640df65857a))
