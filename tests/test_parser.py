@@ -1,5 +1,6 @@
 # type: ignore
 # For get_accounts jwt mock. looking for better solution.
+import datetime
 import typing
 from unittest.mock import patch
 
@@ -103,6 +104,7 @@ async def test_ga_power_get_jwt_cookie():
         )
         sca = SouthernCompanyAPI("", "")
         sca._sc = ""
+        sca._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
         token = await sca._get_southern_jwt_cookie()
         assert token == "sample_cookie"
 

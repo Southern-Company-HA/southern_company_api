@@ -45,12 +45,14 @@ class SouthernCompanyAPI:
         self._jwt: typing.Optional[str] = None
         self._jwt_expiry: datetime.datetime = datetime.datetime.now()
         self._sc: typing.Optional[str] = None
+        self._sc_expiry = datetime.datetime.now()
         self._request_token: typing.Optional[str] = None
+        self._request_token_expiry: datetime.datetime = datetime.datetime.now()
         self._accounts: List[Account] = []
 
     @property
     async def sc(self) -> str:
-        if self._sc is None:
+        if self._sc is None or datetime.datetime.now() >= self._sc_expiry:
             return await self._get_sc_web_token()
         return self._sc
 
@@ -68,8 +70,12 @@ class SouthernCompanyAPI:
 
     @property
     async def request_token(self) -> str:
-        if self._request_token is None:
+        if (
+            self._request_token is None
+            or datetime.datetime.now() >= self._request_token_expiry
+        ):
             self._request_token = await get_request_verification_token()
+            self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
         return self._request_token
 
     async def connect(self) -> None:
@@ -89,8 +95,15 @@ class SouthernCompanyAPI:
 
     async def _get_sc_web_token(self) -> str:
         """Gets a sc_web_token which we get from a successful log in"""
-        if self._request_token is None:
+        # update to use property
+        if (
+            self._request_token is None
+            or datetime.datetime.now() >= self._request_token_expiry
+        ):
             self._request_token = await get_request_verification_token()
+            self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
+                hours=3
+            )
         headers = {
             "Content-Type": "application/json; charset=utf-8",
             "RequestVerificationToken": self._request_token,
@@ -117,6 +130,7 @@ class SouthernCompanyAPI:
                     raise InvalidLogin()
         sc_regex = re.compile(r"NAME='ScWebToken' value='(\S+.\S+.\S+)'", re.IGNORECASE)
         sc_data = sc_regex.search(connection["data"]["html"])
+        self._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
         if sc_data and sc_data.group(1):
             if "'>" in sc_data.group(1):
                 return sc_data.group(1).split("'>")[0]
@@ -126,7 +140,8 @@ class SouthernCompanyAPI:
             raise NoScTokenFound("Login request did not return a sc token")
 
     async def _get_southern_jwt_cookie(self) -> str:
-        if self._sc is None:
+        # update to use property
+        if self._sc is None or datetime.datetime.now() >= self._sc_expiry:
             self._sc = await self._get_sc_web_token()
         data = {"ScWebToken": self._sc}
         async with aiohttp.ClientSession() as session:
@@ -210,7 +225,7 @@ class SouthernCompanyAPI:
 
     async def get_accounts(self) -> List[Account]:
         if await self.jwt is None:
-            raise CantReachSouthernCompany()
+            raise CantReachSouthernCompany("Can't get jwt. Expired and not refreshed")
         headers = {"Authorization": f"bearer {self._jwt}"}
         async with aiohttp.ClientSession() as session:
             async with session.get(
