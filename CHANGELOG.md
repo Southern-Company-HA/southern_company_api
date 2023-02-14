@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.4 (2023-02-14)
+### Fix
+* Get accounts test ([`fd8e78e`](https://github.com/Lash-L/southern_company_api/commit/fd8e78e8456b3c2046cc6e9282bcfc75dfd036a7))
+* Forgot await ([`77e0582`](https://github.com/Lash-L/southern_company_api/commit/77e0582309a9ed4547a49bd95622977c74720205))
+
 ## v0.3.3 (2023-02-13)
 ### Fix
 * Get_accounts to use property ([`0985457`](https://github.com/Lash-L/southern_company_api/commit/09854576d071ec4af761321d9b5c2858a86efe4c))
