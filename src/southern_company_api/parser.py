@@ -75,7 +75,9 @@ class SouthernCompanyAPI:
             or datetime.datetime.now() >= self._request_token_expiry
         ):
             self._request_token = await get_request_verification_token()
-            self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
+            self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
+                hours=3
+            )
         return self._request_token
 
     async def connect(self) -> None:
