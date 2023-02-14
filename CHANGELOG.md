@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.5 (2023-02-14)
+### Fix
+* Pypi not uploading ([`543d0a0`](https://github.com/Lash-L/southern_company_api/commit/543d0a057f11e7f419c2e43293d552afb25321e6))
+
 ## v0.3.4 (2023-02-14)
 ### Fix
 * Get accounts test ([`fd8e78e`](https://github.com/Lash-L/southern_company_api/commit/fd8e78e8456b3c2046cc6e9282bcfc75dfd036a7))
