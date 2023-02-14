@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.6 (2023-02-14)
+### Fix
+* No new line ([`d0b59c0`](https://github.com/Lash-L/southern_company_api/commit/d0b59c05b5d70bee8dbb81f1726aca94bc680034))
+* Black formatting ([`888d0cd`](https://github.com/Lash-L/southern_company_api/commit/888d0cd5461bbc1693615e1df2b33912fa89995c))
+* Made every token expire ([`bea0e8c`](https://github.com/Lash-L/southern_company_api/commit/bea0e8c7ba124ac7b28fa890a6de9fc46c48761b))
+
 ## v0.3.5 (2023-02-14)
 ### Fix
 * Pypi not uploading ([`543d0a0`](https://github.com/Lash-L/southern_company_api/commit/543d0a057f11e7f419c2e43293d552afb25321e6))
