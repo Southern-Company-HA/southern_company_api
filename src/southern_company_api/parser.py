@@ -97,15 +97,8 @@ class SouthernCompanyAPI:
 
     async def _get_sc_web_token(self) -> str:
         """Gets a sc_web_token which we get from a successful log in"""
-        # update to use property
-        if (
-            self._request_token is None
-            or datetime.datetime.now() >= self._request_token_expiry
-        ):
-            self._request_token = await get_request_verification_token()
-            self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
-                hours=3
-            )
+        if await self.request_token is None:
+            raise CantReachSouthernCompany("Request Token could not be refreshed")
         headers = {
             "Content-Type": "application/json; charset=utf-8",
             "RequestVerificationToken": self._request_token,
@@ -143,8 +136,8 @@ class SouthernCompanyAPI:
 
     async def _get_southern_jwt_cookie(self) -> str:
         # update to use property
-        if self._sc is None or datetime.datetime.now() >= self._sc_expiry:
-            self._sc = await self._get_sc_web_token()
+        if await self.sc is None:
+            raise CantReachSouthernCompany("Sc token cannot be refreshed")
         data = {"ScWebToken": self._sc}
         async with aiohttp.ClientSession() as session:
             async with session.post(
