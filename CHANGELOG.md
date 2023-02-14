@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.7 (2023-02-14)
+### Fix
+* Always make call to property ([`a162506`](https://github.com/Lash-L/southern_company_api/commit/a162506a2769e1cabf0d58c1b98c004dc6d632fc))
+
 ## v0.3.6 (2023-02-14)
 ### Fix
 * No new line ([`d0b59c0`](https://github.com/Lash-L/southern_company_api/commit/d0b59c05b5d70bee8dbb81f1726aca94bc680034))
