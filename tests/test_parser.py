@@ -1,3 +1,5 @@
+# type: ignore
+# For get_accounts jwt mock. looking for better solution
 import typing
 from unittest.mock import patch
 
@@ -119,8 +121,13 @@ async def test_ga_power_get_accounts():
             ga_power_sample_account_response
         )
         mock_get.return_value.__aenter__.return_value.status = 200
-        sca = SouthernCompanyAPI("", "")
-        sca._jwt = "sample"
-        response_token: typing.List[Account] = await sca.get_accounts()
-        assert response_token[0].name == "Home Energy"
-        assert sca._accounts == response_token
+
+        @property
+        async def mock_jwt(_foo_self: SouthernCompanyAPI) -> str:
+            return ""
+
+        with patch.object(SouthernCompanyAPI, "jwt", new=mock_jwt):
+            sca = SouthernCompanyAPI("", "")
+            response_token: typing.List[Account] = await sca.get_accounts()
+            assert response_token[0].name == "Home Energy"
+            assert sca._accounts == response_token
