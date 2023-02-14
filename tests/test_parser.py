@@ -1,5 +1,5 @@
 # type: ignore
-# For get_accounts jwt mock. looking for better solution
+# For get_accounts jwt mock. looking for better solution.
 import typing
 from unittest.mock import patch
 
