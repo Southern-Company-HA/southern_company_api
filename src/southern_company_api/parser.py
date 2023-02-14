@@ -1,8 +1,10 @@
+import datetime
 import re
 import typing
 from typing import List
 
 import aiohttp as aiohttp
+from aiohttp import ContentTypeError
 
 from southern_company_api.account import Account
 
@@ -12,6 +14,7 @@ from .exceptions import (
     CantReachSouthernCompany,
     InvalidLogin,
     NoJwtTokenFound,
+    NoRequestTokenFound,
     NoScTokenFound,
 )
 
@@ -30,6 +33,8 @@ async def get_request_verification_token() -> str:
             matches = re.findall(r'data-aft="(\S+)"', login_page)
     except Exception as error:
         raise CantReachSouthernCompany() from error
+    if len(matches) < 1:
+        raise NoRequestTokenFound()
     return matches[0]
 
 
@@ -37,33 +42,58 @@ class SouthernCompanyAPI:
     def __init__(self, username: str, password: str):
         self.username = username
         self.password = password
-        self.jwt: typing.Optional[str] = None
-        self.sc: typing.Optional[str] = None
-        self.request_token: typing.Optional[str] = None
-        self.accounts: typing.Optional[List[Account]] = None
+        self._jwt: typing.Optional[str] = None
+        self._jwt_expiry: datetime.datetime = datetime.datetime.now()
+        self._sc: typing.Optional[str] = None
+        self._request_token: typing.Optional[str] = None
+        self._accounts: List[Account] = []
+
+    @property
+    async def sc(self) -> str:
+        if self._sc is None:
+            return await self._get_sc_web_token()
+        return self._sc
+
+    @property
+    async def accounts(self) -> List[Account]:
+        if len(self._accounts) == 0:
+            return await self.get_accounts()
+        return self._accounts
+
+    @property
+    async def jwt(self) -> str:
+        if self._jwt is None or datetime.datetime.now() >= self._jwt_expiry:
+            self._jwt = await self.get_jwt()
+        return self._jwt
+
+    @property
+    async def request_token(self) -> str:
+        if self._request_token is None:
+            self._request_token = await get_request_verification_token()
+        return self._request_token
 
     async def connect(self) -> None:
         """
         Connects to Southern company and gets all accounts
         """
-        self.request_token = await get_request_verification_token()
-        self.sc = await self._get_sc_web_token()
-        self.jwt = await self.get_jwt()
-        self.accounts = await self.get_accounts()
+        self._request_token = await get_request_verification_token()
+        self._sc = await self._get_sc_web_token()
+        self._jwt = await self.get_jwt()
+        self._accounts = await self.get_accounts()
 
     async def authenticate(self) -> bool:
         """Determines if you can authenticate with Southern Company with given login"""
-        self.request_token = await get_request_verification_token()
-        self.sc = await self._get_sc_web_token()
+        self._request_token = await get_request_verification_token()
+        self._sc = await self._get_sc_web_token()
         return True
 
     async def _get_sc_web_token(self) -> str:
         """Gets a sc_web_token which we get from a successful log in"""
-        if self.request_token is None:
-            await get_request_verification_token()
+        if self._request_token is None:
+            self._request_token = await get_request_verification_token()
         headers = {
             "Content-Type": "application/json; charset=utf-8",
-            "RequestVerificationToken": self.request_token,
+            "RequestVerificationToken": self._request_token,
         }
 
         data = {
@@ -77,9 +107,14 @@ class SouthernCompanyAPI:
             async with session.post(
                 "https://webauth.southernco.com/api/login", json=data, headers=headers
             ) as response:
-                connection = await response.json()
-        if connection["statusCode"] == 500:
-            raise InvalidLogin()
+                if response.status != 200:
+                    raise CantReachSouthernCompany()
+                try:
+                    connection = await response.json()
+                except ContentTypeError as err:
+                    raise InvalidLogin from err
+                if connection["statusCode"] == 500:
+                    raise InvalidLogin()
         sc_regex = re.compile(r"NAME='ScWebToken' value='(\S+.\S+.\S+)'", re.IGNORECASE)
         sc_data = sc_regex.search(connection["data"]["html"])
         if sc_data and sc_data.group(1):
@@ -91,9 +126,9 @@ class SouthernCompanyAPI:
             raise NoScTokenFound("Login request did not return a sc token")
 
     async def _get_southern_jwt_cookie(self) -> str:
-        if self.sc is None:
-            await self._get_sc_web_token()
-        data = {"ScWebToken": self.sc}
+        if self._sc is None:
+            self._sc = await self._get_sc_web_token()
+        data = {"ScWebToken": self._sc}
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://customerservice2.southerncompany.com/Account/LoginComplete?"
@@ -167,13 +202,16 @@ class SouthernCompanyAPI:
                     )
 
         # Returning JWT
-        self.jwt = token
+        self._jwt = token
+        # We can get the exact expiration date from the jwt token, but I don't think it is needed. It should always be
+        # greater than 3 hours.
+        self._jwt_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
         return token
 
     async def get_accounts(self) -> List[Account]:
-        if self.jwt is None:
-            await self.get_jwt()
-        headers = {"Authorization": f"bearer {self.jwt}"}
+        if await self.jwt is None:
+            raise CantReachSouthernCompany()
+        headers = {"Authorization": f"bearer {self._jwt}"}
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 "https://customerservice2api.southerncompany.com/api/account/"
@@ -193,4 +231,5 @@ class SouthernCompanyAPI:
                             company=COMPANY_MAP.get(account["Company"], Company.GPC),
                         )
                     )
+        self._accounts = accounts
         return accounts

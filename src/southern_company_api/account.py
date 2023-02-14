@@ -28,6 +28,18 @@ class HourlyEnergyUsage:
     temp: typing.Optional[float]
 
 
+@dataclasses.dataclass
+class MonthlyUsage:
+    dollars_to_date: float
+    total_kwh_used: float
+    average_daily_usage: float
+    average_daily_cost: float
+    projected_usage_low: float
+    projected_usage_high: float
+    projected_bill_amount_low: float
+    projected_bill_amount_high: float
+
+
 class Account:
     def __init__(self, name: str, primary: bool, number: str, company: Company):
         self.name = name
@@ -138,8 +150,8 @@ class Account:
             headers = {"Authorization": f"bearer {jwt}"}
             params = {
                 "accountNumber": self.number,
-                "startDate": start_date.strftime("%m/%d/%Y 12:00:00 AM"),
-                "endDate": end_date.strftime("%m/%d/%Y 12:00:00 AM"),
+                "startDate": start_date.strftime("%m/%d/%Y %H:%M:%S %p"),
+                "endDate": end_date.strftime("%m/%d/%Y %H:%M:%S %p"),
                 "OPCO": self.company.name,
                 "ServicePointNumber": await self.get_service_point_number(jwt),
                 "intervalBehavior": "Automatic",
@@ -165,6 +177,11 @@ class Account:
                         parsed_date = datetime.datetime.strptime(
                             date, "%Y-%m-%dT%H:%M:%S"
                         )
+                        parsed_date = parsed_date.replace(
+                            tzinfo=datetime.timezone(
+                                datetime.timedelta(hours=-5), "EST"
+                            )
+                        )
                         self.hourly_data[date] = HourlyEnergyUsage(
                             time=parsed_date, usage=None, cost=None, temp=None
                         )
@@ -172,12 +189,46 @@ class Account:
                     # costs and temps can be different lengths?
                     for cost in data["series"]["cost"]["data"]:
                         self.hourly_data[cost["name"]].cost = cost["y"]
-                    for cost in data["series"]["costDelayed"]["data"]:
-                        self.hourly_data[cost["name"]].cost = cost["y"]
                     for usage in data["series"]["usage"]["data"]:
-                        self.hourly_data[usage["name"]].usage = usage["y"]
-                    for usage in data["series"]["usageDelayed"]["data"]:
                         self.hourly_data[usage["name"]].usage = usage["y"]
                     for temp in data["series"]["temp"]["data"]:
                         self.hourly_data[temp["name"]].temp = temp["y"]
                     return return_dates
+
+    async def get_month_data(self, jwt: str) -> MonthlyUsage:
+        """Gets monthly data such as usage so far"""
+        async with aiohttp.ClientSession() as session:
+            headers = {"Authorization": f"bearer {jwt}"}
+            today = datetime.datetime.now()
+            first_of_month = today.replace(day=1)
+            params = {
+                "accountNumber": self.number,
+                "startDate": first_of_month.strftime("%m/%d/%Y 12:00:00 AM"),
+                "endDate": today.strftime("%m/%d/%Y 11:59:59 PM"),
+                "OPCO": self.company.name,
+                "ServicePointNumber": await self.get_service_point_number(jwt),
+                "intervalBehavior": "Automatic",
+            }
+            async with session.get(
+                f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
+                f"MPUData/{self.number}/Daily",
+                headers=headers,
+                params=params,
+            ) as resp:
+                if resp.status != 200:
+                    raise UsageDataFailure(
+                        f"Failed to get month data: {resp.status} {headers}"
+                    )
+                else:
+                    connection = await resp.json()
+                    data = connection["Data"]
+                    return MonthlyUsage(
+                        dollars_to_date=data["DollarsToDate"],
+                        total_kwh_used=data["TotalkWhUsed"],
+                        average_daily_usage=data["AverageDailyUsage"],
+                        average_daily_cost=data["AverageDailyCost"],
+                        projected_usage_low=data["ProjectedUsageLow"],
+                        projected_usage_high=data["ProjectedUsageHigh"],
+                        projected_bill_amount_low=data["ProjectedBillAmountLow"],
+                        projected_bill_amount_high=data["ProjectedBillAmountHigh"],
+                    )
