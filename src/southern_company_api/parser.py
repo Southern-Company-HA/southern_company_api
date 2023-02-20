@@ -1,4 +1,5 @@
 import datetime
+import json
 import re
 import typing
 from typing import List
@@ -119,7 +120,7 @@ class SouthernCompanyAPI:
                     raise CantReachSouthernCompany()
                 try:
                     connection = await response.json()
-                except ContentTypeError as err:
+                except (ContentTypeError, json.JSONDecodeError) as err:
                     raise InvalidLogin from err
                 if connection["statusCode"] == 500:
                     raise InvalidLogin()
@@ -230,7 +231,16 @@ class SouthernCompanyAPI:
             ) as resp:
                 if resp.status != 200:
                     raise AccountFailure("failed to get accounts")
-                account_json = await resp.json()
+                try:
+                    account_json = await resp.json()
+                except (ContentTypeError, json.JSONDecodeError) as err:
+                    try:
+                        error_text = await resp.text()
+                    except aiohttp.ClientError:
+                        error_text = err.msg
+                    raise CantReachSouthernCompany(
+                        f"Incorrect mimetype while trying to get accounts. {error_text}"
+                    ) from err
                 accounts = []
                 for account in account_json["Data"]:
                     accounts.append(

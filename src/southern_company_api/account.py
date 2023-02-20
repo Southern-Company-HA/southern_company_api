@@ -6,6 +6,7 @@ import typing
 from typing import List
 
 import aiohttp
+from aiohttp import ContentTypeError
 
 from .company import Company
 from .exceptions import CantReachSouthernCompany, UsageDataFailure
@@ -59,7 +60,17 @@ class Account:
                     f"getMPUBasicAccountInformation/{self.number}/GPC",
                     headers=headers,
                 ) as resp:
-                    service_info = await resp.json()
+                    try:
+                        service_info = await resp.json()
+                    except (ContentTypeError, json.JSONDecodeError) as err:
+                        try:
+                            error_text = await resp.text()
+                        except aiohttp.ClientError:
+                            error_text = err.msg
+                        raise CantReachSouthernCompany(
+                            f"Incorrect mimetype while trying to get service point number. {error_text}"
+                        ) from err
+
                     # TODO: Test with multiple accounts
                     return service_info["Data"]["meterAndServicePoints"][0][
                         "servicePointNumber"
@@ -93,7 +104,16 @@ class Account:
                         f"Failed to get daily data: {resp.status} {headers}"
                     )
                 else:
-                    response = await resp.json()
+                    try:
+                        response = await resp.json()
+                    except (ContentTypeError, json.JSONDecodeError) as err:
+                        try:
+                            error_text = await resp.text()
+                        except aiohttp.ClientErrors:
+                            error_text = err.msg
+                        raise CantReachSouthernCompany(
+                            f"Incorrect mimetype while trying to get daily data. {error_text}"
+                        ) from err
                     data = json.loads(response["Data"]["Data"])
                     day_maps = {}
                     dates = [date for date in data["xAxis"]["labels"]]
@@ -167,7 +187,16 @@ class Account:
                         f"Failed to get hourly data: {resp.status} {headers}"
                     )
                 else:
-                    data = await resp.json()
+                    try:
+                        data = await resp.json()
+                    except (ContentTypeError, json.JSONDecodeError) as err:
+                        try:
+                            error_text = await resp.text()
+                        except aiohttp.ClientError:
+                            error_text = err.msg
+                        raise CantReachSouthernCompany(
+                            f"Incorrect mimetype while trying to get hourly data. {error_text}"
+                        ) from err
                     if data["Data"]["Data"] is None:
                         raise UsageDataFailure("Received no data back for usage.")
                     data = json.loads(data["Data"]["Data"])
@@ -220,7 +249,16 @@ class Account:
                         f"Failed to get month data: {resp.status} {headers}"
                     )
                 else:
-                    connection = await resp.json()
+                    try:
+                        connection = await resp.json()
+                    except (ContentTypeError, json.JSONDecodeError) as err:
+                        try:
+                            error_text = await resp.text()
+                        except aiohttp.ClientError:
+                            error_text = err.msg
+                        raise CantReachSouthernCompany(
+                            f"Incorrect mimetype while trying to get month data. {error_text}"
+                        ) from err
                     data = connection["Data"]
                     return MonthlyUsage(
                         dollars_to_date=data["DollarsToDate"],
