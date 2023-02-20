@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.3.8 (2023-02-20)
+### Fix
+* Better error handling ([`ed46ea6`](https://github.com/Lash-L/southern_company_api/commit/ed46ea6f7e7ef82392346712d374d9abd0d4a124))
+
 ## v0.3.7 (2023-02-14)
 ### Fix
 * Always make call to property ([`a162506`](https://github.com/Lash-L/southern_company_api/commit/a162506a2769e1cabf0d58c1b98c004dc6d632fc))
