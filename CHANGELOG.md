@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.4.0 (2023-02-21)
+### Feature
+* Add argument for aiohttp client session ([`bc19401`](https://github.com/Lash-L/southern_company_api/commit/bc19401700a43c9188f50aed9aa8b780fbb30b94))
+
 ## v0.3.8 (2023-02-20)
 ### Fix
 * Better error handling ([`ed46ea6`](https://github.com/Lash-L/southern_company_api/commit/ed46ea6f7e7ef82392346712d374d9abd0d4a124))
