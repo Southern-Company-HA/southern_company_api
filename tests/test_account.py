@@ -1,6 +1,7 @@
 import datetime
 from unittest.mock import patch
 
+import aiohttp
 import pytest
 
 from southern_company_api import Account, Company
@@ -8,12 +9,12 @@ from tests import MockResponse, test_get_hourly_usage, test_get_month_data
 
 
 def test_can_create():
-    Account("sample", True, "1", Company.GPC)
+    Account("sample", True, "1", Company.GPC, aiohttp.ClientSession())
 
 
 @pytest.mark.asyncio
 async def test_get_hourly_data():
-    acc = Account("sample", True, "1", Company.GPC)
+    acc = Account("sample", True, "1", Company.GPC, aiohttp.ClientSession())
     with patch(
         "src.southern_company_api.account.aiohttp.ClientSession.get"
     ) as mock_get, patch(
@@ -31,7 +32,7 @@ async def test_get_hourly_data():
 
 @pytest.mark.asyncio
 async def test_ga_power_get_monthly_data():
-    acc = Account("sample", True, "1", Company.GPC)
+    acc = Account("sample", True, "1", Company.GPC, aiohttp.ClientSession())
     with patch(
         "src.southern_company_api.account.aiohttp.ClientSession.get"
     ) as mock_get, patch(

@@ -42,16 +42,24 @@ class MonthlyUsage:
 
 
 class Account:
-    def __init__(self, name: str, primary: bool, number: str, company: Company):
+    def __init__(
+        self,
+        name: str,
+        primary: bool,
+        number: str,
+        company: Company,
+        session: aiohttp.ClientSession,
+    ):
         self.name = name
         self.primary = primary
         self.number = number
         self.company = company
         self.hourly_data: typing.Dict[str, HourlyEnergyUsage] = {}
         self.daily_data: typing.Dict[str, DailyEnergyUsage] = {}
+        self.session = session
 
     async def get_service_point_number(self, jwt: str) -> str:
-        async with aiohttp.ClientSession() as session:
+        async with self.session as session:
             headers = {"Authorization": f"bearer {jwt}"}
             # TODO: Is the /GPC for all customers or just GA power?
             try:
@@ -83,7 +91,7 @@ class Account:
     ) -> List[DailyEnergyUsage]:
         """Available 24 hours after"""
         """This is not really tested yet."""
-        async with aiohttp.ClientSession() as session:
+        async with self.session as session:
             headers = {"Authorization": f"bearer {jwt}"}
             params = {
                 "accountNumber": self.number,
@@ -165,7 +173,7 @@ class Account:
                     continue
                 cur_date = cur_date + datetime.timedelta(days=35)
             return return_data
-        async with aiohttp.ClientSession() as session:
+        async with self.session as session:
             # Needs to check if the data already exist in self.hourly_data to avoid making an unneeded call.
             headers = {"Authorization": f"bearer {jwt}"}
             params = {
@@ -226,7 +234,7 @@ class Account:
 
     async def get_month_data(self, jwt: str) -> MonthlyUsage:
         """Gets monthly data such as usage so far"""
-        async with aiohttp.ClientSession() as session:
+        async with self.session as session:
             headers = {"Authorization": f"bearer {jwt}"}
             today = datetime.datetime.now()
             first_of_month = today.replace(day=1)

@@ -5,7 +5,7 @@ import typing
 from typing import List
 
 import aiohttp as aiohttp
-from aiohttp import ContentTypeError
+from aiohttp import ClientSession, ContentTypeError
 
 from southern_company_api.account import Account
 
@@ -20,13 +20,13 @@ from .exceptions import (
 )
 
 
-async def get_request_verification_token() -> str:
+async def get_request_verification_token(session: ClientSession) -> str:
     """
     Get the request verification token, which allows us to get a login session
     :return: the verification token
     """
     try:
-        async with aiohttp.ClientSession() as session:
+        async with session:
             http_response = await session.get(
                 "https://webauth.southernco.com/account/login"
             )
@@ -40,7 +40,8 @@ async def get_request_verification_token() -> str:
 
 
 class SouthernCompanyAPI:
-    def __init__(self, username: str, password: str):
+    def __init__(self, username: str, password: str, session: ClientSession):
+        self.session = session
         self.username = username
         self.password = password
         self._jwt: typing.Optional[str] = None
@@ -75,7 +76,7 @@ class SouthernCompanyAPI:
             self._request_token is None
             or datetime.datetime.now() >= self._request_token_expiry
         ):
-            self._request_token = await get_request_verification_token()
+            self._request_token = await get_request_verification_token(self.session)
             self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
                 hours=3
             )
@@ -85,14 +86,14 @@ class SouthernCompanyAPI:
         """
         Connects to Southern company and gets all accounts
         """
-        self._request_token = await get_request_verification_token()
+        self._request_token = await get_request_verification_token(self.session)
         self._sc = await self._get_sc_web_token()
         self._jwt = await self.get_jwt()
         self._accounts = await self.get_accounts()
 
     async def authenticate(self) -> bool:
         """Determines if you can authenticate with Southern Company with given login"""
-        self._request_token = await get_request_verification_token()
+        self._request_token = await get_request_verification_token(self.session)
         self._sc = await self._get_sc_web_token()
         return True
 
@@ -112,7 +113,7 @@ class SouthernCompanyAPI:
             "params": {"ReturnUrl": "null"},
         }
 
-        async with aiohttp.ClientSession() as session:
+        async with self.session as session:
             async with session.post(
                 "https://webauth.southernco.com/api/login", json=data, headers=headers
             ) as response:
@@ -140,7 +141,7 @@ class SouthernCompanyAPI:
         if await self.sc is None:
             raise CantReachSouthernCompany("Sc token cannot be refreshed")
         data = {"ScWebToken": self._sc}
-        async with aiohttp.ClientSession() as session:
+        async with self.session as session:
             async with session.post(
                 "https://customerservice2.southerncompany.com/Account/LoginComplete?"
                 "ReturnUrl=null",
@@ -180,7 +181,7 @@ class SouthernCompanyAPI:
         # Now fetch JWT after secondary ScWebToken
         # NOTE: This used to be ScWebToken before 02/07/2023
         headers = {"Cookie": f"SouthernJwtCookie={swtoken}"}
-        async with aiohttp.ClientSession() as session:
+        async with self.session as session:
             async with session.get(
                 "https://customerservice2.southerncompany.com/Account/LoginValidated/"
                 "JwtToken",
@@ -223,7 +224,7 @@ class SouthernCompanyAPI:
         if await self.jwt is None:
             raise CantReachSouthernCompany("Can't get jwt. Expired and not refreshed")
         headers = {"Authorization": f"bearer {self._jwt}"}
-        async with aiohttp.ClientSession() as session:
+        async with self.session as session:
             async with session.get(
                 "https://customerservice2api.southerncompany.com/api/account/"
                 "getAllAccounts",
@@ -249,6 +250,7 @@ class SouthernCompanyAPI:
                             primary=account["PrimaryAccount"] == "Y",
                             number=account["AccountNumber"],
                             company=COMPANY_MAP.get(account["Company"], Company.GPC),
+                            session=self.session,
                         )
                     )
         self._accounts = accounts
