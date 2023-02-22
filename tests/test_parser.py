@@ -26,14 +26,17 @@ from tests import (
 )
 
 
-def test_can_create():
-    SouthernCompanyAPI("user", "pass", aiohttp.ClientSession())
+@pytest.mark.asyncio
+async def test_can_create():
+    async with aiohttp.ClientSession() as session:
+        SouthernCompanyAPI("user", "pass", session)
 
 
 @pytest.mark.asyncio
 async def test_get_request_verification_token():
-    token = await get_request_verification_token(aiohttp.ClientSession())
-    assert len(token) > 1
+    async with aiohttp.ClientSession() as session:
+        token = await get_request_verification_token(session)
+        assert len(token) > 1
 
 
 # @pytest.mark.asyncio
@@ -55,7 +58,8 @@ async def test_cant_find_request_token():
         "src.southern_company_api.parser.aiohttp.ClientResponse.text", return_value=""
     ):
         with pytest.raises(NoRequestTokenFound):
-            await get_request_verification_token(aiohttp.ClientSession())
+            async with aiohttp.ClientSession() as session:
+                await get_request_verification_token(session)
 
 
 @pytest.mark.asyncio
@@ -67,32 +71,35 @@ async def test_can_authenticate():
     ) as mock__get_sc_web_token:
         mock_get_request_verification_token.return_value = "fake_token"
         mock__get_sc_web_token.return_value = "fake_sc"
-        api = SouthernCompanyAPI("", "", aiohttp.ClientSession())
-        result = await api.authenticate()
-        assert result is True
-        mock_get_request_verification_token.assert_called_once()
-        mock__get_sc_web_token.assert_called_once()
+        async with aiohttp.ClientSession() as session:
+            api = SouthernCompanyAPI("", "", session)
+            result = await api.authenticate()
+            assert result is True
+            mock_get_request_verification_token.assert_called_once()
+            mock__get_sc_web_token.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_ga_power_get_sc_web_token():
     with patch("southern_company_api.parser.aiohttp.ClientSession.post") as mock_post:
         mock_post.return_value = MockResponse("", 200, "", ga_power_sample_sc_response)
-        sca = SouthernCompanyAPI("", "", aiohttp.ClientSession())
-        sca._request_token = "sample"
-        response_token = await sca._get_sc_web_token()
-        assert response_token == "sample_sc_token"
+        async with aiohttp.ClientSession() as session:
+            sca = SouthernCompanyAPI("", "", session)
+            sca._request_token = "sample"
+            response_token = await sca._get_sc_web_token()
+            assert response_token == "sample_sc_token"
 
 
 @pytest.mark.asyncio
 async def test_get_sc_web_token_wrong_login():
-    sca = SouthernCompanyAPI("user", "pass", aiohttp.ClientSession())
-    with patch(
-        "src.southern_company_api.parser.aiohttp.ClientSession.post"
-    ) as mock_post:
-        mock_post.return_value = MockResponse("", 200, "", {"statusCode": 500})
-        with pytest.raises(InvalidLogin):
-            await sca._get_sc_web_token()
+    async with aiohttp.ClientSession() as session:
+        sca = SouthernCompanyAPI("user", "pass", session)
+        with patch(
+            "src.southern_company_api.parser.aiohttp.ClientSession.post"
+        ) as mock_post:
+            mock_post.return_value = MockResponse("", 200, "", {"statusCode": 500})
+            with pytest.raises(InvalidLogin):
+                await sca._get_sc_web_token()
 
 
 @pytest.mark.asyncio
@@ -103,11 +110,12 @@ async def test_ga_power_get_jwt_cookie():
         mock_post.return_value = MockResponse(
             "", 200, ga_power_southern_jwt_cookie_header, ""
         )
-        sca = SouthernCompanyAPI("", "", aiohttp.ClientSession())
-        sca._sc = ""
-        sca._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
-        token = await sca._get_southern_jwt_cookie()
-        assert token == "sample_cookie"
+        async with aiohttp.ClientSession() as session:
+            sca = SouthernCompanyAPI("", "", session)
+            sca._sc = ""
+            sca._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
+            token = await sca._get_southern_jwt_cookie()
+            assert token == "sample_cookie"
 
 
 @pytest.mark.asyncio
@@ -119,14 +127,19 @@ async def test_ga_power_get_jwt():
     ) as mock_get_cookie:
         mock_get.return_value = MockResponse("", 200, ga_power_jwt_header, "")
         mock_get_cookie.return_value.__aenter__.return_value = ""
-        sca = SouthernCompanyAPI("", "", aiohttp.ClientSession())
-        token = await sca.get_jwt()
-        assert token == "sample_jwt"
+        async with aiohttp.ClientSession() as session:
+            sca = SouthernCompanyAPI("", "", session)
+            token = await sca.get_jwt()
+            assert token == "sample_jwt"
 
 
 @pytest.mark.asyncio
 async def test_ga_power_get_accounts():
-    with patch("src.southern_company_api.parser.aiohttp.ClientSession.get") as mock_get:
+    with patch(
+        "src.southern_company_api.parser.aiohttp.ClientSession.get"
+    ) as mock_get, patch(
+        "src.southern_company_api.parser.Account.get_service_point_number"
+    ):
         mock_get.return_value.__aenter__.return_value.json.return_value = (
             ga_power_sample_account_response
         )
@@ -137,7 +150,8 @@ async def test_ga_power_get_accounts():
             return ""
 
         with patch.object(SouthernCompanyAPI, "jwt", new=mock_jwt):
-            sca = SouthernCompanyAPI("", "", aiohttp.ClientSession())
-            response_token: typing.List[Account] = await sca.get_accounts()
-            assert response_token[0].name == "Home Energy"
-            assert sca._accounts == response_token
+            async with aiohttp.ClientSession() as session:
+                sca = SouthernCompanyAPI("", "", session)
+                response_token: typing.List[Account] = await sca.get_accounts()
+                assert response_token[0].name == "Home Energy"
+                assert sca._accounts == response_token

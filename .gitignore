@@ -138,3 +138,4 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+src/southern_company_api/test.py
