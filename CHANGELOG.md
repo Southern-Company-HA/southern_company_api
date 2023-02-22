@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.0 (2023-02-22)
+### Feature
+* Pulled out session and service_point ([`fa5863f`](https://github.com/Lash-L/southern_company_api/commit/fa5863f00813cf0a4013c347776a18c5267bfa43))
+
 ## v0.4.0 (2023-02-21)
 ### Feature
 * Add argument for aiohttp client session ([`bc19401`](https://github.com/Lash-L/southern_company_api/commit/bc19401700a43c9188f50aed9aa8b780fbb30b94))
