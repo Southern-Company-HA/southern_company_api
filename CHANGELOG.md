@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.1 (2023-02-23)
+### Fix
+* Repaired test ([`ecb6dfb`](https://github.com/Lash-L/southern_company_api/commit/ecb6dfb44b5706b982772259a20346dcc422bd26))
+* Always authenticate on jwt ([`42bface`](https://github.com/Lash-L/southern_company_api/commit/42bfaceb623d27757c233ab917b2bb2c0d17cfd7))
+
 ## v0.5.0 (2023-02-22)
 ### Feature
 * Pulled out session and service_point ([`fa5863f`](https://github.com/Lash-L/southern_company_api/commit/fa5863f00813cf0a4013c347776a18c5267bfa43))
