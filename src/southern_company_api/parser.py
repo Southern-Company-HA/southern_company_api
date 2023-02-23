@@ -86,6 +86,9 @@ class SouthernCompanyAPI:
         Connects to Southern company and gets all accounts
         """
         self._request_token = await get_request_verification_token(self.session)
+        self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
+            hours=3
+        )
         self._sc = await self._get_sc_web_token()
         self._jwt = await self.get_jwt()
         self._accounts = await self.get_accounts()
@@ -136,6 +139,7 @@ class SouthernCompanyAPI:
 
     async def _get_southern_jwt_cookie(self) -> str:
         # update to use property
+        await self.authenticate()
         if await self.sc is None:
             raise CantReachSouthernCompany("Sc token cannot be refreshed")
         data = {"ScWebToken": self._sc}
@@ -146,6 +150,7 @@ class SouthernCompanyAPI:
         ) as resp:
             # Checking for unsuccessful login
             if resp.status != 200:
+                await self.authenticate()
                 raise NoScTokenFound(
                     f"Failed to get secondary ScWebToken: {resp.status} "
                     f"{resp.headers} {data} sc_expiry: {self._sc_expiry}"
@@ -215,7 +220,6 @@ class SouthernCompanyAPI:
         return token
 
     async def get_accounts(self) -> List[Account]:
-        print("AHAHA")
         if await self.jwt is None:
             raise CantReachSouthernCompany("Can't get jwt. Expired and not refreshed")
         headers = {"Authorization": f"bearer {self._jwt}"}
