@@ -106,7 +106,9 @@ async def test_get_sc_web_token_wrong_login():
 async def test_ga_power_get_jwt_cookie():
     with patch(
         "src.southern_company_api.parser.aiohttp.ClientSession.post"
-    ) as mock_post:
+    ) as mock_post, patch(
+        "src.southern_company_api.parser.SouthernCompanyAPI.authenticate"
+    ):
         mock_post.return_value = MockResponse(
             "", 200, ga_power_southern_jwt_cookie_header, ""
         )
