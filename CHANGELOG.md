@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.0 (2023-02-27)
+### Feature
+* Added base exception class ([`3cb40b8`](https://github.com/Lash-L/southern_company_api/commit/3cb40b8935839a467cd08bd4b00798996ce2b1c3))
+
+### Fix
+* Added request token_expiry to authenticate ([`33cc388`](https://github.com/Lash-L/southern_company_api/commit/33cc388ec3e465a33edb2e56693048044954de2b))
+
 ## v0.5.1 (2023-02-23)
 ### Fix
 * Repaired test ([`ecb6dfb`](https://github.com/Lash-L/southern_company_api/commit/ecb6dfb44b5706b982772259a20346dcc422bd26))
