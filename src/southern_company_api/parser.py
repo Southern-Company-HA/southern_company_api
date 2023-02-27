@@ -96,6 +96,9 @@ class SouthernCompanyAPI:
     async def authenticate(self) -> bool:
         """Determines if you can authenticate with Southern Company with given login"""
         self._request_token = await get_request_verification_token(self.session)
+        self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
+            hours=3
+        )
         self._sc = await self._get_sc_web_token()
         return True
 
@@ -135,6 +138,7 @@ class SouthernCompanyAPI:
             else:
                 return sc_data.group(1)
         else:
+            self._sc = None
             raise NoScTokenFound("Login request did not return a sc token")
 
     async def _get_southern_jwt_cookie(self) -> str:
