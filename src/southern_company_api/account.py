@@ -233,7 +233,7 @@ class Account:
         """Gets monthly data such as usage so far"""
         headers = {"Authorization": f"bearer {jwt}"}
         today = datetime.datetime.now()
-        first_of_month = today.replace(day=1)
+        first_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         params = {
             "accountNumber": self.number,
             "startDate": first_of_month.strftime("%m/%d/%Y 12:00:00 AM"),
