@@ -1,26 +1,30 @@
-class InvalidLogin(Exception):
+class SouthernCompanyException(Exception):
     pass
 
 
-class CantReachSouthernCompany(Exception):
+class InvalidLogin(SouthernCompanyException):
     pass
 
 
-class NoRequestTokenFound(Exception):
+class CantReachSouthernCompany(SouthernCompanyException):
     pass
 
 
-class NoJwtTokenFound(Exception):
+class NoRequestTokenFound(SouthernCompanyException):
     pass
 
 
-class NoScTokenFound(Exception):
+class NoJwtTokenFound(SouthernCompanyException):
     pass
 
 
-class AccountFailure(Exception):
+class NoScTokenFound(SouthernCompanyException):
     pass
 
 
-class UsageDataFailure(Exception):
+class AccountFailure(SouthernCompanyException):
+    pass
+
+
+class UsageDataFailure(SouthernCompanyException):
     pass
