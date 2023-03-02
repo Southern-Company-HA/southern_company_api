@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.1 (2023-03-02)
+### Fix
+* First of month to 00:00 ([`70d3c0a`](https://github.com/Lash-L/southern_company_api/commit/70d3c0a809e8a1d82ceaaac043b7ae0d4e253b33))
+
 ## v0.6.0 (2023-02-27)
 ### Feature
 * Added base exception class ([`3cb40b8`](https://github.com/Lash-L/southern_company_api/commit/3cb40b8935839a467cd08bd4b00798996ce2b1c3))
