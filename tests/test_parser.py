@@ -157,3 +157,27 @@ async def test_ga_power_get_accounts():
                 response_token: typing.List[Account] = await sca.get_accounts()
                 assert response_token[0].name == "Home Energy"
                 assert sca._accounts == response_token
+
+
+@pytest.mark.asyncio
+async def test_get_accounts_expired_jwt():
+    with patch(
+        "src.southern_company_api.parser.aiohttp.ClientSession.get"
+    ) as mock_get, patch(
+        "src.southern_company_api.parser.SouthernCompanyAPI.get_jwt"
+    ) as mock_get_jwt, patch(
+        "src.southern_company_api.parser.Account.get_service_point_number"
+    ):
+        mock_get.return_value.__aenter__.return_value.json.return_value = (
+            ga_power_sample_account_response
+        )
+        mock_get.return_value.__aenter__.return_value.status = 200
+
+        async with aiohttp.ClientSession() as session:
+            sca = SouthernCompanyAPI("", "", session)
+            sca._jwt = ""
+            sca._jwt_expiry = datetime.datetime.now() - datetime.timedelta(hours=5)
+            response_token: typing.List[Account] = await sca.get_accounts()
+            assert response_token[0].name == "Home Energy"
+            assert sca._accounts == response_token
+            assert mock_get_jwt.call_count == 1
