@@ -100,7 +100,6 @@ class Account:
         """This is not really tested yet."""
         headers = {"Authorization": f"bearer {jwt}"}
         params = {
-            "accountNumber": self.number,
             "startDate": start_date.strftime("%m/%d/%Y 12:00:00 AM"),
             "endDate": end_date.strftime("%m/%d/%Y 11:59:59 PM"),
             "OPCO": self.company.name,
@@ -178,7 +177,6 @@ class Account:
         # Needs to check if the data already exist in self.hourly_data to avoid making an unneeded call.
         headers = {"Authorization": f"bearer {jwt}"}
         params = {
-            "accountNumber": self.number,
             "startDate": start_date.strftime("%m/%d/%Y %H:%M:%S %p"),
             "endDate": end_date.strftime("%m/%d/%Y %H:%M:%S %p"),
             "OPCO": self.company.name,
@@ -235,7 +233,6 @@ class Account:
         today = datetime.datetime.now()
         first_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         params = {
-            "accountNumber": self.number,
             "startDate": first_of_month.strftime("%m/%d/%Y 12:00:00 AM"),
             "endDate": today.strftime("%m/%d/%Y 11:59:59 PM"),
             "OPCO": self.company.name,

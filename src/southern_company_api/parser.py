@@ -143,7 +143,6 @@ class SouthernCompanyAPI:
 
     async def _get_southern_jwt_cookie(self) -> str:
         # update to use property
-        await self.authenticate()
         if await self.sc is None:
             raise CantReachSouthernCompany("Sc token cannot be refreshed")
         data = {"ScWebToken": self._sc}
