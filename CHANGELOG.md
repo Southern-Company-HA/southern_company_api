@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.2 (2023-03-09)
+### Fix
+* Removed accountNumber ([`dfab85e`](https://github.com/Lash-L/southern_company_api/commit/dfab85e65d9b37c104745b240ca44ee3e247c35e))
+
 ## v0.6.1 (2023-03-02)
 ### Fix
 * First of month to 00:00 ([`70d3c0a`](https://github.com/Lash-L/southern_company_api/commit/70d3c0a809e8a1d82ceaaac043b7ae0d4e253b33))
