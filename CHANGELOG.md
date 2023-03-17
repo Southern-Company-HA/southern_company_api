@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.3 (2023-03-17)
+### Fix
+* Test removing request token expiration ([`9a20804`](https://github.com/Lash-L/southern_company_api/commit/9a2080480095bbf241c125b6cb688ddd75d381a6))
+
 ## v0.6.2 (2023-03-09)
 ### Fix
 * Removed accountNumber ([`dfab85e`](https://github.com/Lash-L/southern_company_api/commit/dfab85e65d9b37c104745b240ca44ee3e247c35e))
