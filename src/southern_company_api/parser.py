@@ -48,7 +48,6 @@ class SouthernCompanyAPI:
         self._sc: typing.Optional[str] = None
         self._sc_expiry = datetime.datetime.now()
         self._request_token: typing.Optional[str] = None
-        self._request_token_expiry: datetime.datetime = datetime.datetime.now()
         self._accounts: List[Account] = []
 
     @property
@@ -71,14 +70,7 @@ class SouthernCompanyAPI:
 
     @property
     async def request_token(self) -> str:
-        if (
-            self._request_token is None
-            or datetime.datetime.now() >= self._request_token_expiry
-        ):
-            self._request_token = await get_request_verification_token(self.session)
-            self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
-                hours=3
-            )
+        self._request_token = await get_request_verification_token(self.session)
         return self._request_token
 
     async def connect(self) -> None:
@@ -86,9 +78,6 @@ class SouthernCompanyAPI:
         Connects to Southern company and gets all accounts
         """
         self._request_token = await get_request_verification_token(self.session)
-        self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
-            hours=3
-        )
         self._sc = await self._get_sc_web_token()
         self._jwt = await self.get_jwt()
         self._accounts = await self.get_accounts()
@@ -96,9 +85,6 @@ class SouthernCompanyAPI:
     async def authenticate(self) -> bool:
         """Determines if you can authenticate with Southern Company with given login"""
         self._request_token = await get_request_verification_token(self.session)
-        self._request_token_expiry = datetime.datetime.now() + datetime.timedelta(
-            hours=3
-        )
         self._sc = await self._get_sc_web_token()
         return True
 
