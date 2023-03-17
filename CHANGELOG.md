@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.4 (2023-03-17)
+### Fix
+* Decode jwt dates ([`445b4f9`](https://github.com/Lash-L/southern_company_api/commit/445b4f93913e778d70b12387a334f31987b934b8))
+
 ## v0.6.3 (2023-03-17)
 ### Fix
 * Test removing request token expiration ([`9a20804`](https://github.com/Lash-L/southern_company_api/commit/9a2080480095bbf241c125b6cb688ddd75d381a6))
