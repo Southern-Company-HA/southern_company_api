@@ -5,6 +5,7 @@ import typing
 from typing import List
 
 import aiohttp as aiohttp
+import jwt
 from aiohttp import ClientSession, ContentTypeError
 
 from southern_company_api.account import Account
@@ -117,15 +118,17 @@ class SouthernCompanyAPI:
                 raise InvalidLogin()
         sc_regex = re.compile(r"NAME='ScWebToken' value='(\S+.\S+.\S+)'", re.IGNORECASE)
         sc_data = sc_regex.search(connection["data"]["html"])
-        self._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
         if sc_data and sc_data.group(1):
             if "'>" in sc_data.group(1):
-                return sc_data.group(1).split("'>")[0]
+                self._sc = sc_data.group(1).split("'>")[0]
             else:
-                return sc_data.group(1)
+                self._sc = sc_data.group(1)
         else:
             self._sc = None
             raise NoScTokenFound("Login request did not return a sc token")
+        sc_decoded = jwt.decode(self._sc, options={"verify_signature": False})
+        self._sc_expiry = datetime.datetime.fromtimestamp(sc_decoded["exp"])
+        return self._sc
 
     async def _get_southern_jwt_cookie(self) -> str:
         # update to use property
@@ -203,14 +206,15 @@ class SouthernCompanyAPI:
 
         # Returning JWT
         self._jwt = token
-        # We can get the exact expiration date from the jwt token, but I don't think it is needed. It should always be
-        # greater than 3 hours.
-        self._jwt_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
+        jwt_decoded = jwt.decode(self._jwt, options={"verify_signature": False})
+        self._jwt_expiry = datetime.datetime.fromtimestamp(jwt_decoded["exp"])
         return token
 
     async def get_accounts(self) -> List[Account]:
         if await self.jwt is None:
-            raise CantReachSouthernCompany("Can't get jwt. Expired and not refreshed")
+            raise CantReachSouthernCompany(
+                f"Can't get jwt. Expired and not refreshed jwt: {self._jwt}"
+            )
         headers = {"Authorization": f"bearer {self._jwt}"}
         async with self.session.get(
             "https://customerservice2api.southerncompany.com/api/account/"

@@ -81,7 +81,9 @@ async def test_can_authenticate():
 
 @pytest.mark.asyncio
 async def test_ga_power_get_sc_web_token():
-    with patch("southern_company_api.parser.aiohttp.ClientSession.post") as mock_post:
+    with patch(
+        "southern_company_api.parser.aiohttp.ClientSession.post"
+    ) as mock_post, patch("src.southern_company_api.parser.jwt.decode"):
         mock_post.return_value = MockResponse("", 200, "", ga_power_sample_sc_response)
         async with aiohttp.ClientSession() as session:
             sca = SouthernCompanyAPI("", "", session)
@@ -126,7 +128,9 @@ async def test_ga_power_get_jwt():
         "src.southern_company_api.parser.aiohttp.ClientSession.get"
     ) as mock_get, patch(
         "src.southern_company_api.parser.SouthernCompanyAPI._get_southern_jwt_cookie"
-    ) as mock_get_cookie:
+    ) as mock_get_cookie, patch(
+        "src.southern_company_api.parser.jwt.decode"
+    ):
         mock_get.return_value = MockResponse("", 200, ga_power_jwt_header, "")
         mock_get_cookie.return_value.__aenter__.return_value = ""
         async with aiohttp.ClientSession() as session:
