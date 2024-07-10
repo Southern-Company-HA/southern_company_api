@@ -137,11 +137,12 @@ class SouthernCompanyAPI:
         data = {"ScWebToken": self._sc}
         async with self.session.post(
             "https://customerservice2.southerncompany.com/Account/LoginComplete?"
-            "ReturnUrl=null",
+            "ReturnUrl=/Billing/Home",
             data=data,
+            allow_redirects=False,
         ) as resp:
             # Checking for unsuccessful login
-            if resp.status != 200:
+            if resp.status != 302:
                 await self.authenticate()
                 raise NoScTokenFound(
                     f"Failed to get secondary ScWebToken: {resp.status} "
