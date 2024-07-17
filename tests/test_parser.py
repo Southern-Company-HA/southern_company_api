@@ -112,7 +112,7 @@ async def test_ga_power_get_jwt_cookie():
         "src.southern_company_api.parser.SouthernCompanyAPI.authenticate"
     ):
         mock_post.return_value = MockResponse(
-            "", 200, ga_power_southern_jwt_cookie_header, ""
+            "", 302, ga_power_southern_jwt_cookie_header, ""
         )
         async with aiohttp.ClientSession() as session:
             sca = SouthernCompanyAPI("", "", session)
