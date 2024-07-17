@@ -65,7 +65,6 @@ jobs:
   release:
     runs-on: ubuntu-latest
     environment: release
-    if: github.ref == 'refs/heads/main'
     needs:
       - test
       - lint
@@ -84,6 +83,12 @@ jobs:
       # - Publish to PyPI
       - name: Python Semantic Release
         uses: relekang/python-semantic-release@v7.34.6
+        if: github.ref == 'refs/heads/main'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pypi_token: ${{ secrets.PYPI_TOKEN }}
+      - name: Test release
+        uses: python-semantic-release/python-semantic-release@v7.34.6
+        if: github.ref_name != 'main'
+        with:
+          additional_options: --noop
