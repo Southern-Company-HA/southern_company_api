@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.5 (2024-07-23)
+
+### Fix
+
+* Ci ([#15](https://github.com/Southern-Company-HA/southern_company_api/issues/15)) ([`3368fd9`](https://github.com/Southern-Company-HA/southern_company_api/commit/3368fd91f72026c637ed14a5abb2a1abf99b73cc))
+* Issues obtaining the JWT ([#14](https://github.com/Southern-Company-HA/southern_company_api/issues/14)) ([`086c270`](https://github.com/Southern-Company-HA/southern_company_api/commit/086c2704dbeffd725bd2a77f929e9576dded10cb))
+
 ## v0.6.4 (2023-03-17)
 ### Fix
 * Decode jwt dates ([`445b4f9`](https://github.com/Lash-L/southern_company_api/commit/445b4f93913e778d70b12387a334f31987b934b8))
