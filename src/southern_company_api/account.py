@@ -2,8 +2,7 @@ import dataclasses
 import datetime
 import json
 import math
-import typing
-from typing import List
+from typing import Any, Dict, List, Mapping, Optional
 
 import aiohttp
 from aiohttp import ContentTypeError
@@ -24,9 +23,9 @@ class DailyEnergyUsage:
 @dataclasses.dataclass
 class HourlyEnergyUsage:
     time: datetime.datetime
-    usage: typing.Optional[float]
-    cost: typing.Optional[float]
-    temp: typing.Optional[float]
+    usage: Optional[float]
+    cost: Optional[float]
+    temp: Optional[float]
 
 
 @dataclasses.dataclass
@@ -39,6 +38,45 @@ class MonthlyUsage:
     projected_usage_high: float
     projected_bill_amount_low: float
     projected_bill_amount_high: float
+
+
+class DailyEnergyUsageList:
+    def __init__(self, data: Mapping[str, Any]):
+        self.data = data
+
+    def usage(self) -> List[DailyEnergyUsage]:
+        series = self.data.get("series", {})
+        dates = self.data.get("xAxis", {}).get("labels", [])
+
+        high_temps = {i["name"]: i for i in series.get("highTemp", {}).get("data", [])}
+        low_temps = {i["name"]: i for i in series.get("lowTemp", {}).get("data", [])}
+        cost = {
+            i["name"]: i
+            for i in [
+                *series.get("weekdayCost", {}).get("data", []),
+                *series.get("weekendCost", {}).get("data", []),
+            ]
+        }
+        usage = {
+            i["name"]: i
+            for i in [
+                *series.get("weekendUsage", {}).get("data", []),
+                *series.get("weekdayUsage", {}).get("data", []),
+            ]
+        }
+
+        days = [
+            DailyEnergyUsage(
+                # TODO: Determine timezone
+                date=datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S"),
+                usage=usage.get(date, {}).get("y"),
+                cost=cost.get(date, {}).get("y"),
+                low_temp=low_temps.get(date, {}).get("y"),
+                high_temp=high_temps.get(date, {}).get("y"),
+            )
+            for date in dates
+        ]
+        return days
 
 
 class Account:
@@ -54,8 +92,8 @@ class Account:
         self.primary = primary
         self.number = number
         self.company = company
-        self.hourly_data: typing.Dict[str, HourlyEnergyUsage] = {}
-        self.daily_data: typing.Dict[str, DailyEnergyUsage] = {}
+        self.hourly_data: Dict[str, HourlyEnergyUsage] = {}
+        self.daily_data: Dict[str, DailyEnergyUsage] = {}
         self.session = session
         self.service_point_number = None
 
@@ -96,8 +134,10 @@ class Account:
     async def get_daily_data(
         self, start_date: datetime.datetime, end_date: datetime.datetime, jwt: str
     ) -> List[DailyEnergyUsage]:
-        """Available 24 hours after"""
-        """This is not really tested yet."""
+        """
+        Available 24 hours after
+        This is not really tested yet.
+        """
         headers = {"Authorization": f"bearer {jwt}"}
         params = {
             "startDate": start_date.strftime("%m/%d/%Y 12:00:00 AM"),
@@ -128,29 +168,8 @@ class Account:
                         f"Incorrect mimetype while trying to get daily data. {error_text}"
                     ) from err
                 data = json.loads(response["Data"]["Data"])
-                day_maps = {}
-                dates = [date for date in data["xAxis"]["labels"]]
-                high_temps = [temp["y"] for temp in data["series"]["highTemp"]["data"]]
-                low_temps = [temp["y"] for temp in data["series"]["lowTemp"]["data"]]
-                for i, date in enumerate(dates):
-                    day_maps[date] = DailyEnergyUsage(
-                        # TODO: Determine timezone
-                        date=datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S"),
-                        usage=-1,
-                        cost=1,
-                        low_temp=low_temps[i],
-                        high_temp=high_temps[i],
-                    )
-                # TODO: Zip weekday and weekend to make it simpler.
-                for weekend_cost in data["series"]["weekdayCost"]["data"]:
-                    day_maps[weekend_cost["name"]].cost = weekend_cost["y"]
-                for weekend_usage in data["series"]["weekdayUsage"]["data"]:
-                    day_maps[weekend_usage["name"]].usage = weekend_usage["y"]
-                for weekday_cost in data["series"]["weekdayCost"]["data"]:
-                    day_maps[weekday_cost["name"]].cost = weekday_cost["y"]
-                for weekday_usage in data["series"]["weekdayUsage"]["data"]:
-                    day_maps[weekday_usage["name"]].usage = weekday_usage["y"]
-                return list(day_maps.values())
+                daily_usage = DailyEnergyUsageList(data)
+                return daily_usage.usage()
 
     async def get_hourly_data(
         self, start_date: datetime.datetime, end_date: datetime.datetime, jwt: str

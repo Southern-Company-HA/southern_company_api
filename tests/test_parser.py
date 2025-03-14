@@ -1,6 +1,7 @@
 # type: ignore
 # For get_accounts jwt mock. looking for better solution.
 import datetime
+import json
 import typing
 from unittest.mock import AsyncMock, patch
 
@@ -17,13 +18,7 @@ from src.southern_company_api.parser import (
     SouthernCompanyAPI,
     get_request_verification_token,
 )
-from tests import (
-    MockResponse,
-    ga_power_jwt_header,
-    ga_power_sample_account_response,
-    ga_power_sample_sc_response,
-    ga_power_southern_jwt_cookie_header,
-)
+from tests import MockResponse
 
 
 @pytest.mark.asyncio
@@ -80,7 +75,10 @@ async def test_can_authenticate():
 
 
 @pytest.mark.asyncio
-async def test_ga_power_get_sc_web_token():
+async def test_ga_power_get_sc_web_token(datadir):
+    ga_power_sample_sc_response = json.loads(
+        (datadir / "ga_power_sample_sc_response.json").read_text()
+    )
     with patch(
         "southern_company_api.parser.aiohttp.ClientSession.post"
     ) as mock_post, patch("src.southern_company_api.parser.jwt.decode"):
@@ -105,7 +103,10 @@ async def test_get_sc_web_token_wrong_login():
 
 
 @pytest.mark.asyncio
-async def test_ga_power_get_jwt_cookie():
+async def test_ga_power_get_jwt_cookie(datadir):
+    ga_power_southern_jwt_cookie_header = json.loads(
+        (datadir / "ga_power_southern_jwt_cookie_header.json").read_text()
+    )
     with patch(
         "src.southern_company_api.parser.aiohttp.ClientSession.post"
     ) as mock_post, patch(
@@ -123,7 +124,8 @@ async def test_ga_power_get_jwt_cookie():
 
 
 @pytest.mark.asyncio
-async def test_ga_power_get_jwt():
+async def test_ga_power_get_jwt(datadir):
+    ga_power_jwt_header = json.loads((datadir / "ga_power_jwt_header.json").read_text())
     with patch(
         "src.southern_company_api.parser.aiohttp.ClientSession.get"
     ) as mock_get, patch(
@@ -140,7 +142,10 @@ async def test_ga_power_get_jwt():
 
 
 @pytest.mark.asyncio
-async def test_ga_power_get_accounts():
+async def test_ga_power_get_accounts(datadir):
+    ga_power_sample_account_response = json.loads(
+        (datadir / "ga_power_sample_account_response.json").read_text()
+    )
     with patch(
         "src.southern_company_api.parser.aiohttp.ClientSession.get"
     ) as mock_get, patch(
@@ -164,7 +169,10 @@ async def test_ga_power_get_accounts():
 
 
 @pytest.mark.asyncio
-async def test_get_accounts_expired_jwt():
+async def test_get_accounts_expired_jwt(datadir):
+    ga_power_sample_account_response = json.loads(
+        (datadir / "ga_power_sample_account_response.json").read_text()
+    )
     with patch(
         "src.southern_company_api.parser.aiohttp.ClientSession.get"
     ) as mock_get, patch(
