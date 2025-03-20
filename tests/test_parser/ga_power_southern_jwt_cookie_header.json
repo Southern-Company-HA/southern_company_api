@@ -1,0 +1,4 @@
+{
+  "Cache-Control": "no-cache,no-store",
+  "set-cookie": "SouthernJwtCookie=sample_cookie; path=/; secure; samesite=lax; httponly"
+}

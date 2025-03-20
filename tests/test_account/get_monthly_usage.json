@@ -1,0 +1,29 @@
+{
+  "StatusCode": 200,
+  "Message": "Successfully retrieved My Power Usage data for Daily Graph",
+  "MessageType": 0,
+  "Data": {
+    "Data": "{}",
+    "ProjectedBillAmountHigh": 91.0,
+    "ProjectedBillAmountLow": 60.0,
+    "ProjectedUsageHigh": 629.0,
+    "ProjectedUsageLow": 419.0,
+    "AverageDailyCost": 2.79,
+    "AverageDailyUsage": 19.17,
+    "AverageDailyReceived": 0.0,
+    "Days": 27.0,
+    "DollarsToDate": 13.974766406622413,
+    "TotalkWhUsed": 97.0,
+    "TotalkWhReceived": 0.0,
+    "HasData": true,
+    "HasEstimatedBill": true,
+    "IsPartialMonth": true,
+    "AlertThreshold": 0,
+    "AlertThresholdExceeded": false,
+    "IsSolarActive": false,
+    "ProjectedReceivedHigh": 0.0,
+    "ProjectedReceivedLow": 0.0
+  },
+  "ModelErrors": [],
+  "IsScApiResult": true
+}

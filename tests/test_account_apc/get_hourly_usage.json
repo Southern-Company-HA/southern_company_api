@@ -1,0 +1,29 @@
+{
+  "StatusCode": 200,
+  "Message": "Successfully retrieved My Power Usage data for Hourly Graph",
+  "MessageType": 0,
+  "Data": {
+    "Data": null,
+    "ProjectedBillAmountHigh": 0.0,
+    "ProjectedBillAmountLow": 0.0,
+    "ProjectedUsageHigh": 0.0,
+    "ProjectedUsageLow": 0.0,
+    "AverageDailyCost": 0.0,
+    "AverageDailyUsage": 0.0,
+    "AverageDailyReceived": 0.0,
+    "Days": 0.0,
+    "DollarsToDate": 0.0,
+    "TotalkWhUsed": 0.0,
+    "TotalkWhReceived": 0.0,
+    "HasData": false,
+    "HasEstimatedBill": false,
+    "IsPartialMonth": false,
+    "AlertThreshold": 0,
+    "AlertThresholdExceeded": false,
+    "IsSolarActive": false,
+    "ProjectedReceivedHigh": 0.0,
+    "ProjectedReceivedLow": 0.0
+  },
+  "ModelErrors": [],
+  "IsScApiResult": true
+}
