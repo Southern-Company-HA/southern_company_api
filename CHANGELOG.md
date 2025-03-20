@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v0.6.6 (2025-03-20)
+
+### Fix
+
+* **account:** Fixes logic for parsing the daily energy usage list ([#16](https://github.com/Southern-Company-HA/southern_company_api/issues/16)) ([`0697ae7`](https://github.com/Southern-Company-HA/southern_company_api/commit/0697ae737f649a23579cb583ef7211479fe0bddd))
+
 ## v0.6.5 (2024-07-23)
 
 ### Fix
