@@ -106,7 +106,7 @@ class Account:
         try:
             async with self.session.get(
                 f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
-                f"getMPUBasicAccountInformation/{self.number}/GPC",
+                f"getMPUBasicAccountInformation/{self.number}/{self.company.name}",
                 headers=headers,
             ) as resp:
                 try:
@@ -122,12 +122,13 @@ class Account:
                     ) from err
 
                 # TODO: Test with multiple accounts
-                self.service_point_number = service_info["Data"][
-                    "meterAndServicePoints"
-                ][0]["servicePointNumber"]
-                return service_info["Data"]["meterAndServicePoints"][0][
-                    "servicePointNumber"
-                ]
+                meter_points = service_info.get("Data", {}).get("meterAndServicePoints", [])
+                if not meter_points:
+                    # Some utilities (e.g. Alabama Power/APC) may not return service point data
+                    self.service_point_number = ""
+                    return ""
+                self.service_point_number = meter_points[0]["servicePointNumber"]
+                return meter_points[0]["servicePointNumber"]
         except aiohttp.ClientConnectorError as err:
             raise CantReachSouthernCompany("Failed to connect to api") from err
 
