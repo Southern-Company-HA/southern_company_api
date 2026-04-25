@@ -35,14 +35,15 @@ _LOGIN_PAGE_HTML_VALUE_FIRST = """
 
 def _make_usage_history_html(vmodel_json: str) -> str:
     return (
-        '<html><body>'
+        "<html><body>"
         '<input type="hidden" id="AccountID" value="99999" />'
-        '<script>var vmodel = \'' + vmodel_json + '\';</script>'
-        '</body></html>'
+        "<script>var vmodel = '" + vmodel_json + "';</script>"
+        "</body></html>"
     )
 
 
 # --- parse_aspnet_date ---
+
 
 def test_parse_aspnet_date_epoch():
     dt = parse_aspnet_date("/Date(0)/")
@@ -60,6 +61,7 @@ def test_parse_aspnet_date_invalid():
 
 
 # --- _parse_usage_history ---
+
 
 def test_parse_usage_history_billing_periods(datadir):
     vmodel = json.loads((datadir / "vmodel.json").read_text())
@@ -92,7 +94,9 @@ def test_parse_usage_history_daily_usage(datadir):
     assert day0.read_type == "ACTUAL"
     assert day0.meter_read == pytest.approx(12300.0)
     assert day0.billing_period == "10/7/23-11/7/23"
-    assert day0.date == datetime.datetime(2023, 11, 6, 0, 0, 0, tzinfo=datetime.timezone.utc)
+    assert day0.date == datetime.datetime(
+        2023, 11, 6, 0, 0, 0, tzinfo=datetime.timezone.utc
+    )
 
     day1 = history.daily_usage[1]
     assert day1.day_of_week == "Tuesday"
@@ -142,6 +146,7 @@ def test_parse_usage_history_empty():
 
 # --- NicorGasAPI ---
 
+
 @pytest.mark.asyncio
 async def test_nicor_can_create():
     async with aiohttp.ClientSession() as session:
@@ -181,7 +186,9 @@ async def test_nicor_get_request_verification_token_not_found():
         with patch(
             "southern_company_api.nicor_parser.aiohttp.ClientSession.get"
         ) as mock_get:
-            mock_get.return_value = MockResponse("<html><body></body></html>", 200, {}, {})
+            mock_get.return_value = MockResponse(
+                "<html><body></body></html>", 200, {}, {}
+            )
             with pytest.raises(NoRequestTokenFound):
                 await api._get_request_verification_token()
 
@@ -236,13 +243,28 @@ async def test_nicor_complete_session_failure():
 async def test_nicor_connect():
     async with aiohttp.ClientSession() as session:
         api = NicorGasAPI("user", "pass", session)
-        api._get_request_verification_token = AsyncMock(return_value="tok")
-        api._login = AsyncMock()
-        api._complete_session = AsyncMock()
-        await api.connect()
-        api._get_request_verification_token.assert_called_once()
-        api._login.assert_called_once_with("tok")
-        api._complete_session.assert_called_once()
+        with (
+            patch.object(
+                NicorGasAPI,
+                "_get_request_verification_token",
+                new_callable=AsyncMock,
+                return_value="tok",
+            ) as mock_token,
+            patch.object(
+                NicorGasAPI,
+                "_login",
+                new_callable=AsyncMock,
+            ) as mock_login,
+            patch.object(
+                NicorGasAPI,
+                "_complete_session",
+                new_callable=AsyncMock,
+            ) as mock_complete,
+        ):
+            await api.connect()
+            mock_token.assert_called_once()
+            mock_login.assert_called_once_with("tok")
+            mock_complete.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -268,7 +290,9 @@ async def test_nicor_get_usage_history_no_vmodel():
         with patch(
             "southern_company_api.nicor_parser.aiohttp.ClientSession.get"
         ) as mock_get:
-            mock_get.return_value = MockResponse("<html><body></body></html>", 200, {}, {})
+            mock_get.return_value = MockResponse(
+                "<html><body></body></html>", 200, {}, {}
+            )
             with pytest.raises(UsageDataFailure):
                 await api.get_usage_history()
 

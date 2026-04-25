@@ -3,7 +3,6 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-import aiohttp
 from aiohttp import ClientSession
 
 from .exceptions import (
@@ -87,9 +86,7 @@ class NicorGasAPI:
                 )
 
     async def _complete_session(self) -> None:
-        async with self.session.get(
-            f"{self._BASE_URL}/Account/AccountSummary"
-        ) as resp:
+        async with self.session.get(f"{self._BASE_URL}/Account/AccountSummary") as resp:
             if resp.status != 200:
                 raise CantReachSouthernCompany(
                     f"Failed to complete Nicor session: {resp.status}"
@@ -174,8 +171,7 @@ def _parse_usage_history(vmodel: Dict[str, Any]) -> NicorUsageHistory:
                     read_type=str(read_type_list[i]) if i < len(read_type_list) else "",
                     meter_read=(
                         float(meter_reads_list[i])
-                        if i < len(meter_reads_list)
-                        and meter_reads_list[i] is not None
+                        if i < len(meter_reads_list) and meter_reads_list[i] is not None
                         else None
                     ),
                     billing_period=billing_period,

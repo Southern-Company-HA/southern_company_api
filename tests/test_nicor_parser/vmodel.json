@@ -22,7 +22,7 @@
     "DailyUsage": [
       {
         "BillingPeriodDatesListKey": "10/7/23-11/7/23",
-        "DailyCostsList": [1.50, 1.75, 2.00],
+        "DailyCostsList": [1.5, 1.75, 2.0],
         "DailyThermsList": [0.8, 0.9, 1.0],
         "DailyAvgTempData": [45, 43, null],
         "LabelsHDate": [
