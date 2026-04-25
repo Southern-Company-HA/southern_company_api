@@ -1,0 +1,49 @@
+{
+  "isUsageHistoryAvailable": "Y",
+  "UsageHistoryCollection": [
+    {
+      "Date": "11/07/2023",
+      "MeterReading": "12345.000000",
+      "ReadingDetails": "Actual",
+      "CCfs": 10.5,
+      "Therms": 11.025,
+      "DaysUsed": 30
+    },
+    {
+      "Date": "10/07/2023",
+      "MeterReading": "12250.000000",
+      "ReadingDetails": "Estimated",
+      "CCfs": 9.8,
+      "Therms": 10.29,
+      "DaysUsed": 29
+    }
+  ],
+  "AMIUsageMData": {
+    "DailyUsage": [
+      {
+        "BillingPeriodDatesListKey": "10/7/23-11/7/23",
+        "DailyCostsList": [1.50, 1.75, 2.00],
+        "DailyThermsList": [0.8, 0.9, 1.0],
+        "DailyAvgTempData": [45, 43, null],
+        "LabelsHDate": [
+          "/Date(1699228800000)/",
+          "/Date(1699315200000)/",
+          "/Date(1699401600000)/"
+        ],
+        "WeekDayorWeekEnd": ["Monday", "Tuesday", "Saturday"],
+        "ReadType": ["ACTUAL", "ACTUAL", "ESTIMATED"],
+        "MeterReads": [12300, 12310, null]
+      }
+    ],
+    "projectedBillUsage": 45.0,
+    "lowRangeBillAmt": 60.0,
+    "highRangeBillAmt": 80.0
+  },
+  "MeterInformationCollection": [
+    {
+      "MeterNumber": "98765432",
+      "MeterStatus": "On",
+      "NextMeterRead": "12/07/2023"
+    }
+  ]
+}

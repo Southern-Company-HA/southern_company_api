@@ -29,6 +29,70 @@
 
 Control Southern company websites with this api
 
+## Supported utilities
+
+| Utility | Class | Auth method |
+|---|---|---|
+| Georgia Power, Alabama Power, Mississippi Power | `SouthernCompanyAPI` | JWT |
+| Nicor Gas (LDC=7) | `NicorGasAPI` | Cookie session |
+
+## Usage
+
+### Southern Company electric utilities (Georgia Power, Alabama Power, Mississippi Power)
+
+```python
+import asyncio
+import aiohttp
+from southern_company_api import SouthernCompanyAPI
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        api = SouthernCompanyAPI("username", "password", session)
+        await api.connect()
+        for account in api._accounts:
+            usage = await account.get_daily_data(start, end, api._jwt)
+            print(usage)
+
+asyncio.run(main())
+```
+
+### Nicor Gas
+
+```python
+import asyncio
+import aiohttp
+from southern_company_api import NicorGasAPI
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        api = NicorGasAPI("username", "password", session)
+        await api.connect()
+        history = await api.get_usage_history()
+
+        for period in history.billing_periods:
+            print(period.date, period.therms, "therms")
+
+        for day in history.daily_usage:
+            print(day.date.date(), day.therms, "therms", day.cost, "cost")
+
+        print("Projected bill:", history.projected_bill.low_amount,
+              "–", history.projected_bill.high_amount)
+
+asyncio.run(main())
+```
+
+#### Nicor Gas data types
+
+| Type | Fields |
+|---|---|
+| `NicorBillingPeriod` | `date`, `meter_reading`, `ccfs`, `therms`, `days_used` |
+| `NicorDailyUsage` | `date`, `therms`, `cost`, `avg_temp`, `is_weekend`, `read_type`, `meter_read` |
+| `NicorProjectedBill` | `usage`, `low_amount`, `high_amount` |
+| `NicorMeterInfo` | `meter_number`, `status`, `next_read_date` |
+
+All `date` fields are timezone-aware UTC `datetime` objects. The `parse_aspnet_date` helper
+converts the ASP.NET `/Date(ms)/` format used in the portal.
+
 ## Installation
 
 Install this via pip (or your favourite package manager):
