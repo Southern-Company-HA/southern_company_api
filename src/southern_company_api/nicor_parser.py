@@ -125,19 +125,41 @@ def _parse_portal_date(date_str: str) -> datetime.datetime:
     return datetime.datetime.strptime(date_str, "%m/%d/%Y")
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Convert value to float, stripping currency symbols; return default on failure."""
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    cleaned = str(value).replace("$", "").replace(",", "").strip()
+    try:
+        return float(cleaned)
+    except (ValueError, TypeError):
+        return default
+
+
 def _optional_float(value: Any) -> Optional[float]:
-    return float(value) if value is not None else None
+    """Convert value to float, stripping currency symbols; return None if absent or invalid."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    cleaned = str(value).replace("$", "").replace(",", "").strip()
+    try:
+        return float(cleaned)
+    except (ValueError, TypeError):
+        return None
 
 
 def _parse_usage_history(vmodel: Dict[str, Any]) -> NicorUsageHistory:
     billing_periods = [
         NicorBillingPeriod(
             date=_parse_portal_date(p["Date"]),
-            meter_reading=float(p["MeterReading"]),
+            meter_reading=_safe_float(p.get("MeterReading")),
             reading_details=str(p.get("ReadingDetails", "")),
-            ccfs=float(p["CCfs"]),
-            therms=float(p["Therms"]),
-            days_used=int(p["DaysUsed"]),
+            ccfs=_safe_float(p.get("CCfs")),
+            therms=_safe_float(p.get("Therms")),
+            days_used=int(p.get("DaysUsed", 0)),
         )
         for p in vmodel.get("UsageHistoryCollection", [])
     ]
@@ -159,19 +181,19 @@ def _parse_usage_history(vmodel: Dict[str, Any]) -> NicorUsageHistory:
             daily_usage.append(
                 NicorDailyUsage(
                     date=parse_aspnet_date(date_str),
-                    therms=float(therms_list[i]) if i < len(therms_list) else 0.0,
-                    cost=float(costs_list[i]) if i < len(costs_list) else 0.0,
+                    therms=_safe_float(therms_list[i]) if i < len(therms_list) else 0.0,
+                    cost=_safe_float(costs_list[i]) if i < len(costs_list) else 0.0,
                     avg_temp=(
-                        float(temps_list[i])
-                        if i < len(temps_list) and temps_list[i] is not None
+                        _optional_float(temps_list[i])
+                        if i < len(temps_list)
                         else None
                     ),
                     day_of_week=day_of_week,
                     is_weekend=day_of_week in _WEEKEND_DAYS,
                     read_type=str(read_type_list[i]) if i < len(read_type_list) else "",
                     meter_read=(
-                        float(meter_reads_list[i])
-                        if i < len(meter_reads_list) and meter_reads_list[i] is not None
+                        _optional_float(meter_reads_list[i])
+                        if i < len(meter_reads_list)
                         else None
                     ),
                     billing_period=billing_period,
