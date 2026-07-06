@@ -61,33 +61,83 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  # Test semantic-release configuration on PR branches
+  test-release:
+    name: Test Semantic Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Git for Semantic Release Testing
+        run: |
+          # Setup a temp branch to test
+          git checkout -B temp-main-branch
+          git merge ${{ github.event.pull_request.head.sha }} --no-edit
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+      - name: Test Semantic Release (No-op)
+        id: test-release
+        uses: python-semantic-release/python-semantic-release@v10.5.3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          changelog: true
+          # Use noop mode to test without making changes
+          no_operation_mode: true
+      - name: Test Semantic Release (Dry Run)
+        id: test-release-dry
+        uses: python-semantic-release/python-semantic-release@v10.5.3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          changelog: true
+          # Use dry run mode to test without committing
+          commit: false
+          tag: false
+          push: false
+          vcs_release: false
+
   release:
     runs-on: ubuntu-latest
-    environment: release
     needs:
       - test
       - lint
       - commitlint
+    concurrency: release
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    environment:
+      name: release
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      # Run semantic release:
-      # - Update CHANGELOG.md
-      # - Update version in code
-      # - Create git tag
-      # - Create GitHub release
-      # - Publish to PyPI
+          persist-credentials: false
       - name: Python Semantic Release
-        uses: relekang/python-semantic-release@v7.34.6
-        if: github.ref == 'refs/heads/main'
+        id: release
+        uses: python-semantic-release/python-semantic-release@v10.5.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          pypi_token: ${{ secrets.PYPI_TOKEN }}
-      - name: Test release
-        uses: python-semantic-release/python-semantic-release@v7.34.6
-        if: github.ref_name != 'main'
+          changelog: true
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.13.0
+        # NOTE: DO NOT wrap the conditional in ${{ }} as it will always evaluate to true.
+        # See https://github.com/actions/runner/issues/1173
+        if: steps.release.outputs.released == 'true'
         with:
-          additional_options: --noop
+          password: ${{ secrets.PYPI_TOKEN }}
+          packages-dir: dist
+          print-hash: true
+          verbose: true
+
+      - name: Publish package distributions to GitHub Releases
+        uses: python-semantic-release/publish-action@v10.5.3
+        if: steps.release.outputs.released == 'true'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.release.outputs.tag }}
