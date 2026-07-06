@@ -34,9 +34,32 @@ flake8 = "^6.1.0"
 
 [tool.semantic_release]
 branch = "main"
-version_toml = "pyproject.toml:tool.poetry.version"
-version_variable = "src/southern_company_api/__init__.py:__version__"
+version_toml = ["pyproject.toml:tool.poetry.version"]
+version_variables = ["src/southern_company_api/__init__.py:__version__"]
 build_command = "pip install poetry && poetry build"
+changelog_file = "CHANGELOG.md"
+commit = true
+# Keep releasing 0.x versions; remove this once ready to publish 1.0.0
+allow_zero_version = true
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.branches.temp-main-branch]
+match = "temp-main-branch"
+prerelease = false
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = [
+    "build",
+    "chore",
+    "ci",
+    "docs",
+    "feat",
+    "fix",
+    "refactor",
+]
 
 [tool.pytest.ini_options]
 addopts = "-v -Wdefault --cov=southern_company_api --cov-report=term-missing:skip-covered"
