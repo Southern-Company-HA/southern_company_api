@@ -6,7 +6,7 @@ class Company(Enum):
     APC = "Alabama Power"
     GPC = "Georgia Power"
     MPC = "Mississippi Power"
-    NicorGas = "Nicor Gas"
+    NICOR_GAS = "Nicor Gas"
 
 
 COMPANY_MAP = {
@@ -14,5 +14,5 @@ COMPANY_MAP = {
     1: Company.APC,
     2: Company.GPC,
     4: Company.MPC,
-    7: Company.NicorGas,
+    7: Company.NICOR_GAS,
 }

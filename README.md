@@ -49,8 +49,8 @@ async def main():
     async with aiohttp.ClientSession() as session:
         api = SouthernCompanyAPI("username", "password", session)
         await api.connect()
-        for account in api._accounts:
-            usage = await account.get_daily_data(start, end, api._jwt)
+        for account in await api.accounts:
+            usage = await account.get_daily_data(start, end, await api.jwt)
             print(usage)
 
 asyncio.run(main())
@@ -83,12 +83,12 @@ asyncio.run(main())
 
 #### Nicor Gas data types
 
-| Type                 | Fields                                                                        |
-| -------------------- | ----------------------------------------------------------------------------- |
-| `NicorBillingPeriod` | `date`, `meter_reading`, `ccfs`, `therms`, `days_used`                        |
-| `NicorDailyUsage`    | `date`, `therms`, `cost`, `avg_temp`, `is_weekend`, `read_type`, `meter_read` |
-| `NicorProjectedBill` | `usage`, `low_amount`, `high_amount`                                          |
-| `NicorMeterInfo`     | `meter_number`, `status`, `next_read_date`                                    |
+| Type                 | Fields                                                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `NicorBillingPeriod` | `date`, `meter_reading`, `reading_details`, `ccfs`, `therms`, `days_used`                                       |
+| `NicorDailyUsage`    | `date`, `therms`, `cost`, `avg_temp`, `day_of_week`, `is_weekend`, `read_type`, `meter_read`, `billing_period` |
+| `NicorProjectedBill` | `usage`, `low_amount`, `high_amount`                                                                            |
+| `NicorMeterInfo`     | `meter_number`, `meter_status`, `next_read_date`                                                                |
 
 All `date` fields are timezone-aware UTC `datetime` objects. The `parse_aspnet_date` helper
 converts the ASP.NET `/Date(ms)/` format used in the portal.

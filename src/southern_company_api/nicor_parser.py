@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import datetime
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from aiohttp import ClientSession
+import aiohttp
 
 from .exceptions import (
     CantReachSouthernCompany,
@@ -29,11 +31,13 @@ class NicorGasAPI:
     _BASE_URL = "https://customerportal.southerncompany.com"
     _LDC = "7"
 
-    def __init__(self, username: str, password: str, session: ClientSession) -> None:
+    def __init__(
+        self, username: str, password: str, session: aiohttp.ClientSession
+    ) -> None:
         self.username = username
         self.password = password
         self.session = session
-        self._account_id: Optional[str] = None
+        self._account_id: str | None = None
 
     async def connect(self) -> None:
         """Authenticate and establish an authenticated portal session."""
@@ -46,6 +50,10 @@ class NicorGasAPI:
             f"{self._BASE_URL}/User/Login",
             params={"LDC": self._LDC},
         ) as resp:
+            if resp.status != 200:
+                raise CantReachSouthernCompany(
+                    f"Failed to load Nicor login page: {resp.status}"
+                )
             html = await resp.text()
 
         # Handle either attribute order of the hidden <input>
@@ -116,13 +124,15 @@ class NicorGasAPI:
         if not vmodel_match:
             raise UsageDataFailure("Could not find vmodel in Nicor usage history page")
 
-        vmodel: Dict[str, Any] = json.loads(vmodel_match.group(1))
+        vmodel: dict[str, Any] = json.loads(vmodel_match.group(1))
         return _parse_usage_history(vmodel)
 
 
 def _parse_portal_date(date_str: str) -> datetime.datetime:
     """Parse MM/DD/YYYY date strings from the Nicor portal."""
-    return datetime.datetime.strptime(date_str, "%m/%d/%Y")
+    return datetime.datetime.strptime(date_str, "%m/%d/%Y").replace(
+        tzinfo=datetime.timezone.utc
+    )
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
@@ -138,7 +148,7 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def _optional_float(value: Any) -> Optional[float]:
+def _optional_float(value: Any) -> float | None:
     """Convert value to float, stripping currency symbols; return None if absent or invalid."""
     if value is None:
         return None
@@ -151,7 +161,7 @@ def _optional_float(value: Any) -> Optional[float]:
         return None
 
 
-def _parse_usage_history(vmodel: Dict[str, Any]) -> NicorUsageHistory:
+def _parse_usage_history(vmodel: dict[str, Any]) -> NicorUsageHistory:
     billing_periods = [
         NicorBillingPeriod(
             date=_parse_portal_date(p["Date"]),
@@ -165,7 +175,7 @@ def _parse_usage_history(vmodel: Dict[str, Any]) -> NicorUsageHistory:
     ]
 
     ami = vmodel.get("AMIUsageMData") or {}
-    daily_usage: List[NicorDailyUsage] = []
+    daily_usage: list[NicorDailyUsage] = []
     for period in ami.get("DailyUsage", []):
         billing_period = str(period.get("BillingPeriodDatesListKey", ""))
         dates = period.get("LabelsHDate", [])
@@ -184,9 +194,7 @@ def _parse_usage_history(vmodel: Dict[str, Any]) -> NicorUsageHistory:
                     therms=_safe_float(therms_list[i]) if i < len(therms_list) else 0.0,
                     cost=_safe_float(costs_list[i]) if i < len(costs_list) else 0.0,
                     avg_temp=(
-                        _optional_float(temps_list[i])
-                        if i < len(temps_list)
-                        else None
+                        _optional_float(temps_list[i]) if i < len(temps_list) else None
                     ),
                     day_of_week=day_of_week,
                     is_weekend=day_of_week in _WEEKEND_DAYS,
@@ -200,7 +208,7 @@ def _parse_usage_history(vmodel: Dict[str, Any]) -> NicorUsageHistory:
                 )
             )
 
-    meter_info: Optional[NicorMeterInfo] = None
+    meter_info: NicorMeterInfo | None = None
     meter_collection = vmodel.get("MeterInformationCollection", [])
     if meter_collection:
         m = meter_collection[0]

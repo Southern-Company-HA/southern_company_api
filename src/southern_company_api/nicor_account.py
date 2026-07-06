@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import dataclasses
 import datetime
 import re
-from typing import List, Optional
 
 
 def parse_aspnet_date(date_str: str) -> datetime.datetime:
@@ -28,11 +29,11 @@ class NicorDailyUsage:
     date: datetime.datetime
     therms: float
     cost: float
-    avg_temp: Optional[float]
+    avg_temp: float | None
     day_of_week: str
     is_weekend: bool
     read_type: str
-    meter_read: Optional[float]
+    meter_read: float | None
     billing_period: str
 
 
@@ -45,14 +46,14 @@ class NicorMeterInfo:
 
 @dataclasses.dataclass
 class NicorProjectedBill:
-    usage: Optional[float]
-    low_amount: Optional[float]
-    high_amount: Optional[float]
+    usage: float | None
+    low_amount: float | None
+    high_amount: float | None
 
 
 @dataclasses.dataclass
 class NicorUsageHistory:
-    billing_periods: List[NicorBillingPeriod]
-    daily_usage: List[NicorDailyUsage]
+    billing_periods: list[NicorBillingPeriod]
+    daily_usage: list[NicorDailyUsage]
     projected_bill: NicorProjectedBill
-    meter_info: Optional[NicorMeterInfo]
+    meter_info: NicorMeterInfo | None

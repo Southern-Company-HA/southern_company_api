@@ -6,8 +6,6 @@ Python package for the Southern Company utility API (Alabama Power, Georgia Powe
 
 ## Environment
 
-- **Host**: Ubuntu VM at 10.10.1.19
-- **Project root**: `~/projects/southern_company_api/`
 - **Language**: Python (Poetry-managed)
 - **Source**: `src/`
 - **Tests**: `tests/`

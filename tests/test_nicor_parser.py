@@ -76,7 +76,9 @@ def test_parse_usage_history_billing_periods(datadir):
     assert first.days_used == 30
     assert first.meter_reading == pytest.approx(12345.0)
     assert first.reading_details == "Actual"
-    assert first.date == datetime.datetime(2023, 11, 7, 0, 0, 0)
+    assert first.date == datetime.datetime(
+        2023, 11, 7, 0, 0, 0, tzinfo=datetime.timezone.utc
+    )
 
 
 def test_parse_usage_history_daily_usage(datadir):
@@ -133,7 +135,9 @@ def test_parse_usage_history_meter_info(datadir):
     assert history.meter_info is not None
     assert history.meter_info.meter_number == "98765432"
     assert history.meter_info.meter_status == "On"
-    assert history.meter_info.next_read_date == datetime.datetime(2023, 12, 7, 0, 0, 0)
+    assert history.meter_info.next_read_date == datetime.datetime(
+        2023, 12, 7, 0, 0, 0, tzinfo=datetime.timezone.utc
+    )
 
 
 def test_parse_usage_history_empty():
