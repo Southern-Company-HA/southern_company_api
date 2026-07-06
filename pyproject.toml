@@ -20,7 +20,7 @@ packages = [{ include = "southern_company_api", from = "src" }]
 "Changelog" = "https://github.com/Lash-L/southern-company-api/blob/main/CHANGELOG.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 aiohttp = "^3.8.1"
 PyJWT = "^2.0"
 
