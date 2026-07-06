@@ -21,7 +21,7 @@ Python package for the Southern Company utility API (Alabama Power, Georgia Powe
 ## Agent Collaboration Rules
 
 - **Read History First**: At the start of every session, the agent MUST run `git status` and `git log -n 5` to understand recent changes, and read the `## Active Handoff` section in this file.
-- **Commit with Context**: Every commit message must explain the *why* behind a change, not just the *what*.
+- **Commit with Context**: Every commit message must explain the _why_ behind a change, not just the _what_.
 - **The Handoff Journal**: Before concluding a session or completing a major task, the active agent MUST update the `## Active Handoff` section at the bottom of this file.
 - **Interactive Dry Runs**: The agent must always perform a dry run and list planned changes for user approval before modifying code, databases, or configuration files.
 - **Explicit Task Tracking**: Maintain a shared checklist of tasks in `task.md` or `CLAUDE.md`. Mark tasks as `[x]` for complete, `[/]` for in-progress, and `[ ]` for pending.
