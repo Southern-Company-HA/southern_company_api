@@ -28,4 +28,5 @@ Python package for the Southern Company utility API (Alabama Power, Georgia Powe
 
 ## Active Handoff
 
+- [2026-07-06 (Claude Code)]: PR #18 (upstream Nicor Gas support) cleanup complete. All Copilot/Lash-L review items were already fixed in a284080; the 14 reply comments that had been posted as raw file paths were deleted and reposted with real content, a summary comment pings Lash-L for re-review (can't use the re-request API without upstream write access). Awaiting Lash-L's re-review.
 - [2026-06-06 (Claude Code)]: Added agent collaboration rules and initialized handoff log.
