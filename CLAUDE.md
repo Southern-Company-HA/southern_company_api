@@ -9,7 +9,7 @@ Python package for the Southern Company utility API (Alabama Power, Georgia Powe
 - **Language**: Python (Poetry-managed)
 - **Source**: `src/`
 - **Tests**: `tests/`
-- **GitHub**: https://github.com/robertscheib/southern_company_api (public)
+- **GitHub**: https://github.com/tempeduck/southern_company_api (public)
 
 ## Rules
 
