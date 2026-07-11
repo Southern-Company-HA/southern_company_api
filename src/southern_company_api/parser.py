@@ -13,6 +13,18 @@ from aiohttp import ClientSession, ContentTypeError
 from southern_company_api.account import Account
 
 from .company import COMPANY_MAP, Company
+from .constants import (
+    API_HEADERS,
+    DOWNSTREAM_HEADERS,
+    EMAIL_VALIDATION_URL,
+    GET_ALL_ACCOUNTS_URL,
+    JWT_TOKEN_URL,
+    LOGIN_API_HEADERS,
+    LOGIN_API_URL,
+    LOGIN_COMPLETE_URL,
+    LOGIN_PAGE_HEADERS,
+    LOGIN_PAGE_URL,
+)
 from .exceptions import (
     CantReachSouthernCompany,
     EmailValidationRequired,
@@ -24,59 +36,10 @@ from .exceptions import (
 
 _LOGGER = logging.getLogger(__name__)
 
-_BROWSER_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
-
-_LOGIN_PAGE_HEADERS = {
-    "User-Agent": _BROWSER_UA,
-    "Accept": (
-        "text/html,application/xhtml+xml,application/xml;q=0.9,"
-        "image/avif,image/webp,image/apng,*/*;q=0.8"
-    ),
-    "Accept-Language": "en-US,en;q=0.9",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": "1",
-}
-
-_LOGIN_API_HEADERS = {
-    "User-Agent": _BROWSER_UA,
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Content-Type": "application/json; charset=utf-8",
-    "Origin": "https://webauth.southernco.com",
-    "Referer": "https://webauth.southernco.com/account/login",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-origin",
-    "X-Requested-With": "XMLHttpRequest",
-}
-
-_DOWNSTREAM_HEADERS = {
-    "User-Agent": _BROWSER_UA,
-    "Accept": (
-        "text/html,application/xhtml+xml,application/xml;q=0.9,"
-        "image/avif,image/webp,image/apng,*/*;q=0.8"
-    ),
-    "Accept-Language": "en-US,en;q=0.9",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "same-origin",
-    "Upgrade-Insecure-Requests": "1",
-}
-
 _JWT_RE = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
 _SC_ATTR_RE = re.compile(
     r"""name\s*=\s*['"]ScWebToken['"][^>]*?value\s*=\s*['"]([^'"]+)['"]""",
     re.IGNORECASE,
-)
-
-EMAIL_VALIDATION_URL = (
-    "https://customerservice2.southerncompany.com/MyProfile/LoginInfo"
 )
 
 
@@ -131,8 +94,8 @@ async def get_request_verification_token(session: ClientSession) -> str:
     """Get the request verification token from the login page with browser headers."""
     try:
         async with session.get(
-            "https://webauth.southernco.com/account/login",
-            headers=_LOGIN_PAGE_HEADERS,
+            LOGIN_PAGE_URL,
+            headers=LOGIN_PAGE_HEADERS,
         ) as http_response:
             if http_response.status != 200:
                 raise CantReachSouthernCompany(
@@ -205,7 +168,7 @@ class SouthernCompanyAPI:
         if self._request_token is None:
             self._request_token = await get_request_verification_token(self.session)
 
-        headers = dict(_LOGIN_API_HEADERS)
+        headers = dict(LOGIN_API_HEADERS)
         headers["RequestVerificationToken"] = self._request_token
 
         data = {
@@ -219,7 +182,7 @@ class SouthernCompanyAPI:
         }
 
         async with self.session.post(
-            "https://webauth.southernco.com/api/login", json=data, headers=headers
+            LOGIN_API_URL, json=data, headers=headers
         ) as response:
             if response.status != 200:
                 raise CantReachSouthernCompany(
@@ -290,7 +253,7 @@ class SouthernCompanyAPI:
         try:
             sc_decoded = jwt.decode(self._sc, options={"verify_signature": False})
             self._sc_expiry = datetime.datetime.fromtimestamp(sc_decoded["exp"])
-        except (jwt.DecodeError, KeyError):
+        except (jwt.DecodeError, KeyError, TypeError, ValueError, OverflowError, OSError):
             self._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=1)
             _LOGGER.debug("ScWebToken is not a JWT; using 1-hour default expiry")
         return self._sc
@@ -300,12 +263,11 @@ class SouthernCompanyAPI:
         if await self.sc is None:
             raise CantReachSouthernCompany("Sc token cannot be refreshed")
         data = {"ScWebToken": self._sc}
-        headers = dict(_DOWNSTREAM_HEADERS)
+        headers = dict(DOWNSTREAM_HEADERS)
         headers["Origin"] = "https://webauth.southernco.com"
         headers["Referer"] = "https://webauth.southernco.com/"
         async with self.session.post(
-            "https://customerservice2.southerncompany.com/Account/LoginComplete?"
-            "ReturnUrl=/Billing/Home",
+            LOGIN_COMPLETE_URL,
             data=data,
             headers=headers,
             allow_redirects=False,
@@ -344,12 +306,11 @@ class SouthernCompanyAPI:
         swtoken = await self._get_southern_jwt_cookie()
         # Now fetch JWT after secondary ScWebToken
         # NOTE: This used to be ScWebToken before 02/07/2023
-        headers = dict(_DOWNSTREAM_HEADERS)
+        headers = dict(DOWNSTREAM_HEADERS)
         headers["Cookie"] = f"SouthernJwtCookie={swtoken}"
         headers["Referer"] = "https://customerservice2.southerncompany.com/Billing/Home"
         async with self.session.get(
-            "https://customerservice2.southerncompany.com/Account/LoginValidated/"
-            "JwtToken",
+            JWT_TOKEN_URL,
             headers=headers,
         ) as resp:
             if resp.status != 200:
@@ -387,17 +348,10 @@ class SouthernCompanyAPI:
             raise CantReachSouthernCompany(
                 f"Can't get jwt. Expired and not refreshed jwt: {self._jwt}"
             )
-        headers = dict(_DOWNSTREAM_HEADERS)
+        headers = dict(API_HEADERS)
         headers["Authorization"] = f"bearer {self._jwt}"
-        headers["Accept"] = "application/json, text/plain, */*"
-        headers["Sec-Fetch-Dest"] = "empty"
-        headers["Sec-Fetch-Mode"] = "cors"
-        headers["Sec-Fetch-Site"] = "same-site"
-        headers["Origin"] = "https://customerservice2.southerncompany.com"
-        headers["Referer"] = "https://customerservice2.southerncompany.com/Billing/Home"
         async with self.session.get(
-            "https://customerservice2api.southerncompany.com/api/account/"
-            "getAllAccounts",
+            GET_ALL_ACCOUNTS_URL,
             headers=headers,
         ) as resp:
             if resp.status != 200:

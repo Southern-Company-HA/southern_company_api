@@ -9,14 +9,10 @@ import aiohttp
 from aiohttp import ContentTypeError
 
 from .company import Company
+from .constants import API_HEADERS, MPU_BASE_URL
 from .exceptions import CantReachSouthernCompany, UsageDataFailure
 
 _LOGGER = logging.getLogger(__name__)
-
-_BROWSER_UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-)
 
 
 @dataclasses.dataclass
@@ -106,38 +102,23 @@ class Account:
         self.service_point_number = None
 
     async def get_service_point_number(self, jwt: str) -> str:
-        headers = {
-            "Authorization": f"bearer {jwt}",
-            "content-type": "application/json, text/plain, */*",
-            "User-Agent": _BROWSER_UA,
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
-            "Origin": "https://customerservice2.southerncompany.com",
-            "Referer": "https://customerservice2.southerncompany.com/Billing/Home",
-        }
+        headers = dict(API_HEADERS)
+        headers["Authorization"] = f"bearer {jwt}"
         # Use the account's own company code (GPC, APC, MPC) instead of hardcoding GPC
         company_code = self.company.name
         try:
             async with self.session.get(
-                f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
-                f"getMPUBasicAccountInformation/{self.number}/{company_code}",
+                f"{MPU_BASE_URL}/getMPUBasicAccountInformation/"
+                f"{self.number}/{company_code}",
                 headers=headers,
             ) as resp:
                 try:
                     service_info = await resp.json()
                 except (ContentTypeError, json.JSONDecodeError) as err:
-                    try:
-                        error_text = await resp.text()
-                    except aiohttp.ClientError:
-                        error_text = err.msg
                     raise CantReachSouthernCompany(
                         f"Incorrect mimetype while trying to get service point "
-                        f"number. error:{error_text} "
-                        f"Response headers:{resp.headers} "
-                        f"Your headers:{headers}"
+                        f"number. status:{resp.status} "
+                        f"content_type:{resp.headers.get('Content-Type')}"
                     ) from err
 
                 # Handle empty meterAndServicePoints gracefully
@@ -145,13 +126,10 @@ class Account:
                 if points:
                     self.service_point_number = points[0]["servicePointNumber"]
                 else:
-                    preview = json.dumps(service_info)[:500]
                     _LOGGER.warning(
-                        "meterAndServicePoints empty for account %s (company %s); "
-                        "monthly/hourly stats unavailable. Response preview: %s",
-                        self.number,
+                        "meterAndServicePoints empty for company %s; "
+                        "monthly/hourly stats unavailable.",
                         company_code,
-                        preview,
                     )
                     self.service_point_number = ""
                 return self.service_point_number or ""
@@ -165,7 +143,8 @@ class Account:
         Available 24 hours after
         This is not really tested yet.
         """
-        headers = {"Authorization": f"bearer {jwt}"}
+        headers = dict(API_HEADERS)
+        headers["Authorization"] = f"bearer {jwt}"
         params = {
             "startDate": start_date.strftime("%m/%d/%Y 12:00:00 AM"),
             "endDate": end_date.strftime("%m/%d/%Y 11:59:59 PM"),
@@ -174,8 +153,7 @@ class Account:
             "intervalBehavior": "Automatic",
         }
         async with self.session.get(
-            f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
-            f"MPUData/{self.number}/Daily",
+            f"{MPU_BASE_URL}/MPUData/{self.number}/Daily",
             headers=headers,
             params=params,
         ) as resp:
@@ -221,7 +199,8 @@ class Account:
                 cur_date = cur_date + datetime.timedelta(days=35)
             return return_data
         # Needs to check if the data already exist in self.hourly_data to avoid making an unneeded call.
-        headers = {"Authorization": f"bearer {jwt}"}
+        headers = dict(API_HEADERS)
+        headers["Authorization"] = f"bearer {jwt}"
         params = {
             "startDate": start_date.strftime("%m/%d/%Y %H:%M:%S %p"),
             "endDate": end_date.strftime("%m/%d/%Y %H:%M:%S %p"),
@@ -230,8 +209,7 @@ class Account:
             "intervalBehavior": "Automatic",
         }
         async with self.session.get(
-            f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
-            f"MPUData/{self.number}/Hourly",
+            f"{MPU_BASE_URL}/MPUData/{self.number}/Hourly",
             headers=headers,
             params=params,
         ) as resp:
@@ -275,7 +253,8 @@ class Account:
 
     async def get_month_data(self, jwt: str) -> MonthlyUsage:
         """Gets monthly data such as usage so far"""
-        headers = {"Authorization": f"bearer {jwt}"}
+        headers = dict(API_HEADERS)
+        headers["Authorization"] = f"bearer {jwt}"
         today = datetime.datetime.now()
         first_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         params = {
@@ -286,8 +265,7 @@ class Account:
             "intervalBehavior": "Automatic",
         }
         async with self.session.get(
-            f"https://customerservice2api.southerncompany.com/api/MyPowerUsage/"
-            f"MPUData/{self.number}/Daily",
+            f"{MPU_BASE_URL}/MPUData/{self.number}/Daily",
             headers=headers,
             params=params,
         ) as resp:
