@@ -87,17 +87,18 @@ async def test_ga_power_get_sc_web_token(datadir):
             sca = SouthernCompanyAPI("", "", session)
             sca._request_token = "sample"
             response_token = await sca._get_sc_web_token()
-            assert response_token == "sample_sc_token"
+            assert response_token == "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJl"
 
 
 @pytest.mark.asyncio
 async def test_get_sc_web_token_wrong_login():
     async with aiohttp.ClientSession() as session:
         sca = SouthernCompanyAPI("user", "pass", session)
+        sca._request_token = "sample"
         with patch(
             "src.southern_company_api.parser.aiohttp.ClientSession.post"
         ) as mock_post:
-            mock_post.return_value = MockResponse("", 200, "", {"statusCode": 500})
+            mock_post.return_value = MockResponse("", 200, "", {"statusCode": 500, "isSuccess": False, "data": {"result": 2}})
             with pytest.raises(InvalidLogin):
                 await sca._get_sc_web_token()
 

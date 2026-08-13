@@ -3,7 +3,7 @@
   "message": null,
   "data": {
     "result": 0,
-    "token": "sample_sc_token",
+    "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJl",
     "emailValidated": null,
     "termsOfServiceAccepted": null,
     "errorMessage": "Login Succeeded.",
@@ -57,7 +57,7 @@
       "phoneNumber": null,
       "oAuthLogoutId": null
     },
-    "html": "<form action='null' method='post' id='WL_Form' name='WL_Form' ><p><strong>Note:</strong> Since your browser does not support Javascript, you must press the Continue button once to proceed.</p><div><input type=\"submit\" value=\"Continue\"/></div><INPUT TYPE='hidden' NAME='ScWebToken' value='sample_sc_token'><INPUT TYPE='hidden' NAME='WL_Error' value='><INPUT TYPE='hidden' NAME='WL_LogonId' value='><INPUT TYPE='hidden' NAME='WL_LoginResult' value='Success'><INPUT TYPE='hidden' NAME='CheckedExtended' value='True'></form>",
+    "html": "<form action='null' method='post' id='WL_Form' name='WL_Form' ><p><strong>Note:</strong> Since your browser does not support Javascript, you must press the Continue button once to proceed.</p><div><input type=\"submit\" value=\"Continue\"/></div><INPUT TYPE='hidden' NAME='ScWebToken' value='eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJl'><INPUT TYPE='hidden' NAME='WL_Error' value='><INPUT TYPE='hidden' NAME='WL_LogonId' value='><INPUT TYPE='hidden' NAME='WL_LoginResult' value='Success'><INPUT TYPE='hidden' NAME='CheckedExtended' value='True'></form>",
     "redirect": null,
     "origin": null
   },

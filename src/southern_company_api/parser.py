@@ -1,8 +1,10 @@
 import datetime
 import json
+import logging
 import re
 import typing
-from typing import List
+from typing import Any, List, Optional
+from urllib.parse import unquote
 
 import aiohttp as aiohttp
 import jwt
@@ -11,27 +13,98 @@ from aiohttp import ClientSession, ContentTypeError
 from southern_company_api.account import Account
 
 from .company import COMPANY_MAP, Company
+from .constants import (
+    API_HEADERS,
+    DOWNSTREAM_HEADERS,
+    EMAIL_VALIDATION_URL,
+    GET_ALL_ACCOUNTS_URL,
+    JWT_TOKEN_URL,
+    LOGIN_API_HEADERS,
+    LOGIN_API_URL,
+    LOGIN_COMPLETE_URL,
+    LOGIN_PAGE_HEADERS,
+    LOGIN_PAGE_URL,
+)
 from .exceptions import (
-    AccountFailure,
     CantReachSouthernCompany,
+    EmailValidationRequired,
     InvalidLogin,
     NoJwtTokenFound,
     NoRequestTokenFound,
     NoScTokenFound,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
+_JWT_RE = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+_SC_ATTR_RE = re.compile(
+    r"""name\s*=\s*['"]ScWebToken['"][^>]*?value\s*=\s*['"]([^'"]+)['"]""",
+    re.IGNORECASE,
+)
+
+
+def _extract_sc_token(connection: dict[str, Any]) -> Optional[str]:
+    """Try every known location for the ScWebToken in the login response.
+
+    The API can return the token in multiple forms:
+    - ``data.html``: an auto-submitting form with a JWT-format ScWebToken
+      (this is the one LoginComplete accepts).
+    - ``data.token``: an opaque encrypted token (LoginComplete rejects
+      this with 500).
+    - ``data.returnUrlWithToken``: a URL containing the token as a query
+      parameter.
+
+    Prefer the JWT from ``data.html`` first, then fall back to the others.
+    """
+    data = connection.get("data") or {}
+
+    html = data.get("html") or ""
+    if isinstance(html, str) and html:
+        attr_match = _SC_ATTR_RE.search(html)
+        if attr_match:
+            candidate = unquote(attr_match.group(1))
+            if _JWT_RE.fullmatch(candidate):
+                return candidate
+        jwt_match = _JWT_RE.search(html)
+        if jwt_match:
+            return jwt_match.group(0)
+
+    return_url = data.get("returnUrlWithToken")
+    if isinstance(return_url, str) and return_url:
+        url_match = re.search(
+            r"ScWebToken=([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)",
+            return_url,
+        )
+        if url_match:
+            return url_match.group(1)
+        jwt_match = _JWT_RE.search(return_url)
+        if jwt_match:
+            return jwt_match.group(0)
+
+    token = data.get("token")
+    if isinstance(token, str) and token.strip():
+        decoded = unquote(token)
+        if _JWT_RE.fullmatch(decoded) or len(decoded) > 100:
+            return decoded
+
+    return None
+
 
 async def get_request_verification_token(session: ClientSession) -> str:
-    """
-    Get the request verification token, which allows us to get a login session
-    :return: the verification token
-    """
+    """Get the request verification token from the login page with browser headers."""
     try:
-        http_response = await session.get(
-            "https://webauth.southernco.com/account/login"
-        )
-        login_page = await http_response.text()
-        matches = re.findall(r'data-aft="(\S+)"', login_page)
+        async with session.get(
+            LOGIN_PAGE_URL,
+            headers=LOGIN_PAGE_HEADERS,
+        ) as http_response:
+            if http_response.status != 200:
+                raise CantReachSouthernCompany(
+                    f"Login page returned {http_response.status}"
+                )
+            login_page = await http_response.text()
+            matches = re.findall(r'data-aft="(\S+)"', login_page)
+    except (CantReachSouthernCompany, NoRequestTokenFound):
+        raise
     except Exception as error:
         raise CantReachSouthernCompany() from error
     if len(matches) < 1:
@@ -71,7 +144,8 @@ class SouthernCompanyAPI:
 
     @property
     async def request_token(self) -> str:
-        self._request_token = await get_request_verification_token(self.session)
+        if self._request_token is None:
+            self._request_token = await get_request_verification_token(self.session)
         return self._request_token
 
     async def connect(self) -> None:
@@ -90,44 +164,98 @@ class SouthernCompanyAPI:
         return True
 
     async def _get_sc_web_token(self) -> str:
-        """Gets a sc_web_token which we get from a successful log in"""
-        if await self.request_token is None:
-            raise CantReachSouthernCompany("Request Token could not be refreshed")
-        headers = {
-            "Content-Type": "application/json; charset=utf-8",
-            "RequestVerificationToken": self._request_token,
-        }
+        """Gets a sc_web_token which we get from a successful log in."""
+        if self._request_token is None:
+            self._request_token = await get_request_verification_token(self.session)
+
+        headers = dict(LOGIN_API_HEADERS)
+        headers["RequestVerificationToken"] = self._request_token
 
         data = {
             "username": self.username,
             "password": self.password,
+            "rememberUsername": False,
+            "staySignedIn": False,
             "targetPage": 1,
             "params": {"ReturnUrl": "null"},
+            "ScWebToken": "",
         }
 
         async with self.session.post(
-            "https://webauth.southernco.com/api/login", json=data, headers=headers
+            LOGIN_API_URL, json=data, headers=headers
         ) as response:
             if response.status != 200:
-                raise CantReachSouthernCompany()
+                raise CantReachSouthernCompany(
+                    f"Login API returned status {response.status}"
+                )
             try:
                 connection = await response.json()
             except (ContentTypeError, json.JSONDecodeError) as err:
-                raise InvalidLogin from err
-            if connection["statusCode"] == 500:
-                raise InvalidLogin()
-        sc_regex = re.compile(r"NAME='ScWebToken' value='(\S+.\S+.\S+)'", re.IGNORECASE)
-        sc_data = sc_regex.search(connection["data"]["html"])
-        if sc_data and sc_data.group(1):
-            if "'>" in sc_data.group(1):
-                self._sc = sc_data.group(1).split("'>")[0]
-            else:
-                self._sc = sc_data.group(1)
-        else:
+                try:
+                    body = await response.text()
+                except Exception:
+                    body = ""
+                preview = body[:200] if body else "(empty)"
+                raise CantReachSouthernCompany(
+                    f"Login API returned non-JSON response (Content-Type: "
+                    f"{response.headers.get('Content-Type', 'unknown')}). "
+                    f"Likely blocked by Southern Company bot detection (Imperva). "
+                    f"Try accessing southernco.com from a browser on the same "
+                    f"network. Response preview: {preview}"
+                ) from err
+
+        if not connection.get("isSuccess", False):
+            status_code = connection.get("statusCode")
+            result = (connection.get("data") or {}).get("result")
+            error_msg = (connection.get("data") or {}).get("errorMessage") or ""
+            _LOGGER.warning(
+                "Southern Company login failed: statusCode=%s result=%s "
+                "errorMessage=%s isSuccess=%s",
+                status_code,
+                result,
+                error_msg,
+                connection.get("isSuccess"),
+            )
+
+            if status_code == 500 or result == 2:
+                raise InvalidLogin(
+                    f"Invalid username/password (result={result}): {error_msg}"
+                )
+            if result == 3:
+                raise InvalidLogin(
+                    f"Password expired, must be changed on southernco.com: {error_msg}"
+                )
+
             self._sc = None
-            raise NoScTokenFound("Login request did not return a sc token")
-        sc_decoded = jwt.decode(self._sc, options={"verify_signature": False})
-        self._sc_expiry = datetime.datetime.fromtimestamp(sc_decoded["exp"])
+            keys = sorted((connection.get("data") or {}).keys())
+            raise NoScTokenFound(
+                f"Login was not successful (statusCode={status_code}, "
+                f"result={result}, data keys: {keys}): {error_msg}"
+            )
+
+        token = _extract_sc_token(connection)
+        if token is None:
+            self._sc = None
+            keys = sorted((connection.get("data") or {}).keys())
+            raise NoScTokenFound(
+                f"Login request did not return a sc token (data keys: {keys})"
+            )
+        self._sc = token
+
+        redirect = (connection.get("data") or {}).get("redirect") or ""
+        if redirect and "validateemail" in redirect.lower():
+            raise EmailValidationRequired(
+                f"Email validation required. Visit {EMAIL_VALIDATION_URL}, "
+                "validate your email address, then reconfigure this integration.",
+                validation_url=EMAIL_VALIDATION_URL,
+            )
+
+        try:
+            sc_decoded = jwt.decode(self._sc, options={"verify_signature": False})
+            self._sc_expiry = datetime.datetime.fromtimestamp(sc_decoded["exp"])
+        except (jwt.DecodeError, KeyError, TypeError, ValueError, OverflowError, OSError):
+            self._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=1)
+            _LOGGER.debug("ScWebToken is not a JWT; using 1-hour default expiry")
         return self._sc
 
     async def _get_southern_jwt_cookie(self) -> str:
@@ -135,10 +263,13 @@ class SouthernCompanyAPI:
         if await self.sc is None:
             raise CantReachSouthernCompany("Sc token cannot be refreshed")
         data = {"ScWebToken": self._sc}
+        headers = dict(DOWNSTREAM_HEADERS)
+        headers["Origin"] = "https://webauth.southernco.com"
+        headers["Referer"] = "https://webauth.southernco.com/"
         async with self.session.post(
-            "https://customerservice2.southerncompany.com/Account/LoginComplete?"
-            "ReturnUrl=/Billing/Home",
+            LOGIN_COMPLETE_URL,
             data=data,
+            headers=headers,
             allow_redirects=False,
         ) as resp:
             # Checking for unsuccessful login
@@ -175,10 +306,11 @@ class SouthernCompanyAPI:
         swtoken = await self._get_southern_jwt_cookie()
         # Now fetch JWT after secondary ScWebToken
         # NOTE: This used to be ScWebToken before 02/07/2023
-        headers = {"Cookie": f"SouthernJwtCookie={swtoken}"}
+        headers = dict(DOWNSTREAM_HEADERS)
+        headers["Cookie"] = f"SouthernJwtCookie={swtoken}"
+        headers["Referer"] = "https://customerservice2.southerncompany.com/Billing/Home"
         async with self.session.get(
-            "https://customerservice2.southerncompany.com/Account/LoginValidated/"
-            "JwtToken",
+            JWT_TOKEN_URL,
             headers=headers,
         ) as resp:
             if resp.status != 200:
@@ -216,35 +348,43 @@ class SouthernCompanyAPI:
             raise CantReachSouthernCompany(
                 f"Can't get jwt. Expired and not refreshed jwt: {self._jwt}"
             )
-        headers = {"Authorization": f"bearer {self._jwt}"}
+        headers = dict(API_HEADERS)
+        headers["Authorization"] = f"bearer {self._jwt}"
         async with self.session.get(
-            "https://customerservice2api.southerncompany.com/api/account/"
-            "getAllAccounts",
+            GET_ALL_ACCOUNTS_URL,
             headers=headers,
         ) as resp:
             if resp.status != 200:
-                raise AccountFailure("failed to get accounts")
+                raise CantReachSouthernCompany(
+                    f"Failed to get accounts: status {resp.status}"
+                )
             try:
                 account_json = await resp.json()
             except (ContentTypeError, json.JSONDecodeError) as err:
                 try:
                     error_text = await resp.text()
                 except aiohttp.ClientError:
-                    error_text = err.msg
+                    error_text = str(err)
                 raise CantReachSouthernCompany(
                     f"Incorrect mimetype while trying to get accounts. {error_text}"
                 ) from err
             accounts = []
-            for account in account_json["Data"]:
-                accounts.append(
-                    Account(
-                        name=account["Description"],
-                        primary=account["PrimaryAccount"] == "Y",
-                        number=account["AccountNumber"],
-                        company=COMPANY_MAP.get(account["Company"], Company.GPC),
-                        session=self.session,
+            try:
+                account_list = account_json["Data"]
+                for account in account_list:
+                    accounts.append(
+                        Account(
+                            name=account["Description"],
+                            primary=account["PrimaryAccount"] == "Y",
+                            number=account["AccountNumber"],
+                            company=COMPANY_MAP.get(account["Company"], Company.GPC),
+                            session=self.session,
+                        )
                     )
-                )
+            except (KeyError, TypeError) as err:
+                raise CantReachSouthernCompany(
+                    f"Unexpected account data format: {err}"
+                ) from err
         for account in accounts:
             await account.get_service_point_number(self._jwt)
         self._accounts = accounts
