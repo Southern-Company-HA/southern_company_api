@@ -99,7 +99,7 @@ class Account:
         self.hourly_data: Dict[str, HourlyEnergyUsage] = {}
         self.daily_data: Dict[str, DailyEnergyUsage] = {}
         self.session = session
-        self.service_point_number = None
+        self.service_point_number: Optional[str] = None
 
     async def get_service_point_number(self, jwt: str) -> str:
         headers = dict(API_HEADERS)
@@ -122,7 +122,9 @@ class Account:
                     ) from err
 
                 # Handle empty meterAndServicePoints gracefully
-                points = (service_info.get("Data") or {}).get("meterAndServicePoints") or []
+                points = (service_info.get("Data") or {}).get(
+                    "meterAndServicePoints"
+                ) or []
                 if points:
                     self.service_point_number = points[0]["servicePointNumber"]
                 else:

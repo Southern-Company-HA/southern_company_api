@@ -253,7 +253,14 @@ class SouthernCompanyAPI:
         try:
             sc_decoded = jwt.decode(self._sc, options={"verify_signature": False})
             self._sc_expiry = datetime.datetime.fromtimestamp(sc_decoded["exp"])
-        except (jwt.DecodeError, KeyError, TypeError, ValueError, OverflowError, OSError):
+        except (
+            jwt.DecodeError,
+            KeyError,
+            TypeError,
+            ValueError,
+            OverflowError,
+            OSError,
+        ):
             self._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=1)
             _LOGGER.debug("ScWebToken is not a JWT; using 1-hour default expiry")
         return self._sc
