@@ -11,7 +11,7 @@ from .nicor_account import (
 from .nicor_parser import NicorGasAPI
 from .parser import SouthernCompanyAPI, get_request_verification_token
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 __all__ = [
     "Account",
