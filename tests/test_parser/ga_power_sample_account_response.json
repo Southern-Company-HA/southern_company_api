@@ -1,45 +1,25 @@
 {
-  "StatusCode": 200,
-  "Message": "Success",
-  "MessageType": 0,
-  "Data": [
+  "statusCode": 200,
+  "status": true,
+  "message": "Success",
+  "data": [
     {
-      "UserSid": "sample-user",
-      "AccountNumber": 1,
-      "Company": 2,
-      "AccountType": 0,
-      "Description": "Home Energy",
-      "PrimaryAccount": "Y",
-      "IsCurrentViewAccount": false,
-      "IsNicknameChanged": false,
-      "IsPrimaryAccountChanged": false,
-      "DataPresentmentPilotParticipant": "",
-      "BillStatus": 0,
-      "IsLocked": false,
-      "AccountLockedUntil": null,
-      "IsPinRequired": false,
-      "IsPinValidated": false,
-      "LocalAddress": {
-        "Number": "0000",
-        "Structure": "",
-        "Note": "",
-        "PreDirection": "",
-        "StreetName": "RANDOM_STREET",
-        "PostDirection": "",
-        "StreetType": "LANE",
-        "AddressLine1": "0000 RANDOM_STREET LANE ",
-        "AddressLine2": "",
-        "City": "SOMEWHERE",
-        "State": "GA",
-        "Zip": "00000",
-        "Country": null
+      "accountNumber": 1,
+      "company": 2,
+      "accountType": 0,
+      "description": "Home Energy",
+      "primaryAccount": "Y",
+      "isCurrentViewAccount": false,
+      "isLocked": false,
+      "isPinRequired": false,
+      "localAddress": {
+        "addressLine1": "0000 RANDOM_STREET LANE ",
+        "city": "SOMEWHERE",
+        "state": "GA",
+        "zip": "00000"
       },
-      "PremiseNumber": null,
-      "IsPrePayAccount": false,
-      "IsInGulfDivestiturePilot": false,
-      "EixLinkedClients": [],
-      "IsEixConsented": false
+      "isPrePayAccount": false
     }
   ],
-  "IsScApiResult": true
+  "modelErrors": null
 }

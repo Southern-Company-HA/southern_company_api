@@ -28,9 +28,18 @@ LOGIN_COMPLETE_URL = f"{CS_BASE}/Account/LoginComplete?ReturnUrl=/Billing/Home"
 JWT_TOKEN_URL = f"{CS_BASE}/Account/LoginValidated/JwtToken"
 CS_BILLING_HOME = f"{CS_BASE}/Billing/Home"
 
-CS_API_BASE = "https://customerservice2api.southerncompany.com/api"
-GET_ALL_ACCOUNTS_URL = f"{CS_API_BASE}/account/getAllAccounts"
-MPU_BASE_URL = f"{CS_API_BASE}/MyPowerUsage"
+# The customerservice2api.southerncompany.com estate was retired in September
+# 2026 -- it answers 401 for a valid session JWT. Account and usage data now
+# live on per-domain "Ascend" (OCC) hosts, which accept the same bearer token.
+ACCOUNT_API_BASE = "https://occaccountapi.southerncompany.com/api/v1"
+MPU_API_BASE = "https://occmypowerusageapi.southerncompany.com/api/v1/MyPowerUsage"
+
+# NOTE: the web app names this route "getAllAccounts" in its HTTP *cache key*,
+# not in the path (setUrl(cacheKey, url, params)); the URL is the bare base.
+GET_ALL_ACCOUNTS_URL = f"{ACCOUNT_API_BASE}/Cap/"
+ACCOUNT_SUMMARY_URL = f"{ACCOUNT_API_BASE}/Accounts/{{account}}/Summary"
+USAGE_GRAPH_DATA_URL = f"{MPU_API_BASE}/UsageGraphData/{{agreement}}/{{granularity}}"
+BILL_PERIODS_URL = f"{MPU_API_BASE}/BillPeriods"
 
 EMAIL_VALIDATION_URL = f"{CS_BASE}/MyProfile/LoginInfo"
 
@@ -79,4 +88,7 @@ API_HEADERS = {
     "Sec-Fetch-Site": "same-site",
     "Origin": CS_BASE,
     "Referer": CS_BILLING_HOME,
+    # The OCC hosts are fronted by the same WAF as the portal and the web app
+    # always sends this alongside the bearer token.
+    "DeviceType": "Desktop",
 }

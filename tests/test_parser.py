@@ -12,6 +12,7 @@ from southern_company_api import Account
 from src.southern_company_api.exceptions import (
     CantReachSouthernCompany,
     InvalidLogin,
+    NoJwtTokenFound,
     NoRequestTokenFound,
 )
 from src.southern_company_api.parser import (
@@ -148,6 +149,43 @@ async def test_ga_power_get_jwt(datadir):
             sca = SouthernCompanyAPI("", "", session)
             token = await sca.get_jwt()
             assert token == "sample_jwt"
+
+
+@pytest.mark.asyncio
+async def test_ga_power_get_jwt_from_response_header(datadir):
+    """Southern Company stopped setting the cookie; the token is a bare header."""
+    jwt_response_header = json.loads(
+        (datadir / "ga_power_jwt_response_header.json").read_text()
+    )
+    with patch(
+        "src.southern_company_api.parser.aiohttp.ClientSession.get"
+    ) as mock_get, patch(
+        "src.southern_company_api.parser.SouthernCompanyAPI._get_southern_jwt_cookie"
+    ) as mock_get_cookie, patch(
+        "src.southern_company_api.parser.jwt.decode"
+    ):
+        # 200 with no Set-Cookie at all, exactly what the endpoint returns now
+        mock_get.return_value = MockResponse("", 200, jwt_response_header, "")
+        mock_get_cookie.return_value.__aenter__.return_value = ""
+        async with aiohttp.ClientSession() as session:
+            sca = SouthernCompanyAPI("", "", session)
+            token = await sca.get_jwt()
+            assert token == jwt_response_header["ScJwtToken"]
+
+
+@pytest.mark.asyncio
+async def test_ga_power_get_jwt_no_token_anywhere():
+    with patch(
+        "src.southern_company_api.parser.aiohttp.ClientSession.get"
+    ) as mock_get, patch(
+        "src.southern_company_api.parser.SouthernCompanyAPI._get_southern_jwt_cookie"
+    ) as mock_get_cookie:
+        mock_get.return_value = MockResponse("", 200, {}, "")
+        mock_get_cookie.return_value.__aenter__.return_value = ""
+        async with aiohttp.ClientSession() as session:
+            sca = SouthernCompanyAPI("", "", session)
+            with pytest.raises(NoJwtTokenFound):
+                await sca.get_jwt()
 
 
 @pytest.mark.asyncio

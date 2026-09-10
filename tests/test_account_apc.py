@@ -20,14 +20,18 @@ async def test_apc_get_hourly_data(datadir):
     test_get_hourly_usage = json.loads((datadir / "get_hourly_usage.json").read_text())
     async with aiohttp.ClientSession() as session:
         acc = Account("sample", True, "1", Company.APC, session)
+        acc.usage_ids = {
+            "serviceAgreementId": "CfDJ8-sample-agreement",
+            "servicePointId": "CfDJ8-sample-point",
+            "premiseId": "CfDJ8-sample-premise",
+            "personId": "CfDJ8-sample-person",
+            "operatingCompany": "APC",
+        }
         with patch(
             "src.southern_company_api.account.aiohttp.ClientSession.get"
-        ) as mock_get, patch(
-            "southern_company_api.account.Account.get_service_point_number"
-        ) as mock_get_service_point:
+        ) as mock_get:
             with pytest.raises(exceptions.UsageDataFailure):
                 mock_get.return_value = MockResponse("", 200, "", test_get_hourly_usage)
-                mock_get_service_point.return_value.__aenter__.return_value = ""
                 await acc.get_hourly_data(
                     datetime.datetime.now() - datetime.timedelta(days=3),
                     datetime.datetime.now() - datetime.timedelta(days=2, hours=22),
@@ -40,13 +44,17 @@ async def test_apc_get_monthly_data(datadir):
     test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
     async with aiohttp.ClientSession() as session:
         acc = Account("sample", True, "1", Company.APC, session)
+        acc.usage_ids = {
+            "serviceAgreementId": "CfDJ8-sample-agreement",
+            "servicePointId": "CfDJ8-sample-point",
+            "premiseId": "CfDJ8-sample-premise",
+            "personId": "CfDJ8-sample-person",
+            "operatingCompany": "APC",
+        }
         with patch(
             "src.southern_company_api.account.aiohttp.ClientSession.get"
-        ) as mock_get, patch(
-            "southern_company_api.account.Account.get_service_point_number"
-        ) as mock_get_service_point:
+        ) as mock_get:
             mock_get.return_value = MockResponse("", 200, "", test_get_month_data)
-            mock_get_service_point.return_value.__aenter__.return_value = ""
             month = await acc.get_month_data("dummy_jwt")
         assert month.total_kwh_used == pytest.approx(1588.0)
         assert month.dollars_to_date == pytest.approx(250.78)
