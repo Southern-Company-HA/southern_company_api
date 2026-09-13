@@ -12,9 +12,10 @@ from aiohttp import ClientSession, ContentTypeError
 
 from southern_company_api.account import Account
 
-from .company import COMPANY_MAP, Company
+from .company import Company
 from .constants import (
-    API_HEADERS,
+    ACCOUNT_API_HEADERS,
+    CS_BILLING_HOME,
     DOWNSTREAM_HEADERS,
     EMAIL_VALIDATION_URL,
     GET_ALL_ACCOUNTS_URL,
@@ -87,6 +88,23 @@ def _extract_sc_token(connection: dict[str, Any]) -> Optional[str]:
         if _JWT_RE.fullmatch(decoded) or len(decoded) > 100:
             return decoded
 
+    return None
+
+
+def _get_header_ci(headers: Any, name: str) -> Optional[str]:
+    """Case-insensitive header lookup.
+
+    aiohttp's response headers are already case-insensitive, but this also
+    has to work against plain ``dict`` fixtures in tests, so fall back to a
+    manual scan rather than assuming the multidict behavior.
+    """
+    value = headers.get(name)
+    if value is not None:
+        return value
+    name_lower = name.lower()
+    for key, value in headers.items():
+        if key.lower() == name_lower:
+            return value
     return None
 
 
@@ -265,8 +283,18 @@ class SouthernCompanyAPI:
             _LOGGER.debug("ScWebToken is not a JWT; using 1-hour default expiry")
         return self._sc
 
-    async def _get_southern_jwt_cookie(self) -> str:
-        # update to use property
+    async def _complete_login(self) -> None:
+        """POST the ScWebToken to LoginComplete to establish the authenticated session.
+
+        NOTE (Sept 2026 backend migration): Southern Company migrated their
+        customer information system (Aug 31 - Sep 7 2026). Before this, this
+        step's 302 response carried a `SouthernJwtCookie` in Set-Cookie,
+        which was then relayed as a `Cookie` header to fetch the JWT. As of
+        the migration, this response has **no Set-Cookie header at all** --
+        cookies are no longer part of the flow. We now only check that the
+        redirect succeeded; the JWT itself is retrieved as a bare response
+        header in a later request (see `get_jwt` below).
+        """
         if await self.sc is None:
             raise CantReachSouthernCompany("Sc token cannot be refreshed")
         data = {"ScWebToken": self._sc}
@@ -283,66 +311,41 @@ class SouthernCompanyAPI:
             if resp.status != 302:
                 await self.authenticate()
                 raise NoScTokenFound(
-                    f"Failed to get secondary ScWebToken: {resp.status} "
-                    f"{resp.headers} {data} sc_expiry: {self._sc_expiry}"
+                    f"Failed to complete login: {resp.status} "
+                    f"sc_expiry: {self._sc_expiry}"
                 )
-            # Regex to parse JWT out of headers
-            # NOTE: This used to be ScWebToken before 02/07/2023
-            swtregex = re.compile(r"SouthernJwtCookie=(\S*);", re.IGNORECASE)
-            # Parsing response header to get token
-            swtcookies = resp.headers.get("set-cookie")
-            if swtcookies:
-                swtmatches = swtregex.search(swtcookies)
-
-                # Checking for matches
-                if swtmatches and swtmatches.group(1):
-                    swtoken = swtmatches.group(1)
-                else:
-                    raise NoScTokenFound(
-                        "Failed to get secondary ScWebToken: Could not find any "
-                        "token matches in headers"
-                    )
-            else:
-                raise NoScTokenFound(
-                    "Failed to get secondary ScWebToken: No cookies were sent back."
-                )
-        return swtoken
 
     async def get_jwt(self) -> str:
-        # Trading ScWebToken for Jwt
-        swtoken = await self._get_southern_jwt_cookie()
-        # Now fetch JWT after secondary ScWebToken
-        # NOTE: This used to be ScWebToken before 02/07/2023
-        headers = dict(DOWNSTREAM_HEADERS)
-        headers["Cookie"] = f"SouthernJwtCookie={swtoken}"
-        headers["Referer"] = "https://customerservice2.southerncompany.com/Billing/Home"
-        async with self.session.get(
-            JWT_TOKEN_URL,
-            headers=headers,
-        ) as resp:
+        # Trading ScWebToken for Jwt. As of the Sept 2026 backend migration
+        # this is a 3-step flow with no cookies involved anywhere: complete
+        # the login, load the authenticated app shell (mirrors the browser's
+        # navigation to /Billing/Home), then read the JWT directly off the
+        # `scjwttoken` response header of the JwtToken endpoint.
+        await self._complete_login()
+
+        home_headers = dict(DOWNSTREAM_HEADERS)
+        home_headers["Referer"] = "https://webauth.southernco.com/"
+        async with self.session.get(CS_BILLING_HOME, headers=home_headers) as resp:
+            if resp.status != 200:
+                raise NoJwtTokenFound(
+                    f"Failed to load authenticated session at {CS_BILLING_HOME}: "
+                    f"{resp.status}"
+                )
+
+        jwt_headers = dict(DOWNSTREAM_HEADERS)
+        jwt_headers["Accept"] = "application/json, text/plain, */*"
+        jwt_headers["Referer"] = CS_BILLING_HOME
+        async with self.session.get(JWT_TOKEN_URL, headers=jwt_headers) as resp:
             if resp.status != 200:
                 raise NoJwtTokenFound(
                     f"Failed to get JWT: {resp.status} {await resp.text()} "
-                    f"{headers}"
+                    f"{jwt_headers}"
                 )
-            # Regex to parse JWT out of headers
-            regex = re.compile(r"ScJwtToken=(\S*);", re.IGNORECASE)
-
-            # Parsing response header to get token
-            cookies = resp.headers.get("set-cookie")
-            if cookies:
-                matches = regex.search(cookies)
-
-                # Checking for matches
-                if matches and matches.group(1):
-                    token = matches.group(1)
-                else:
-                    raise NoJwtTokenFound(
-                        "Failed to get JWT: Could not find any token matches in "
-                        "headers"
-                    )
-            else:
-                raise NoJwtTokenFound("Failed to get JWT: No cookies were sent back.")
+            token = _get_header_ci(resp.headers, "scjwttoken")
+            if not token:
+                raise NoJwtTokenFound(
+                    "Failed to get JWT: no scjwttoken response header found"
+                )
 
         # Returning JWT
         self._jwt = token
@@ -355,8 +358,9 @@ class SouthernCompanyAPI:
             raise CantReachSouthernCompany(
                 f"Can't get jwt. Expired and not refreshed jwt: {self._jwt}"
             )
-        headers = dict(API_HEADERS)
+        headers = dict(ACCOUNT_API_HEADERS)
         headers["Authorization"] = f"bearer {self._jwt}"
+        headers["userid"] = self.username
         async with self.session.get(
             GET_ALL_ACCOUNTS_URL,
             headers=headers,
@@ -377,14 +381,21 @@ class SouthernCompanyAPI:
                 ) from err
             accounts = []
             try:
-                account_list = account_json["Data"]
+                # NOTE (Sept 2026 backend migration): the Cap/ response shape
+                # differs from the pre-migration getAllAccounts response --
+                # lowercase field names, "company" is now the OPCO code
+                # string (e.g. "GPC") instead of an int, and
+                # "isPrimaryAccount" is already a bool.
+                account_list = account_json["data"]
                 for account in account_list:
                     accounts.append(
                         Account(
-                            name=account["Description"],
-                            primary=account["PrimaryAccount"] == "Y",
-                            number=account["AccountNumber"],
-                            company=COMPANY_MAP.get(account["Company"], Company.GPC),
+                            name=account["description"],
+                            primary=bool(account["isPrimaryAccount"]),
+                            number=account["accountNumber"],
+                            company=Company.__members__.get(
+                                account.get("company", ""), Company.GPC
+                            ),
                             session=self.session,
                         )
                     )

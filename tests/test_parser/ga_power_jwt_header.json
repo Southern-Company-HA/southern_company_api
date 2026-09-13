@@ -1,1 +1,1 @@
-{ "set-cookie": "ScJwtToken=sample_jwt; path=/" }
+{ "scjwttoken": "sample_jwt" }

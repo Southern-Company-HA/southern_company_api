@@ -1,0 +1,41 @@
+{
+  "statusCode": 200,
+  "status": true,
+  "message": null,
+  "data": {
+    "accountId": "1000000001",
+    "divisionCode": "GPC",
+    "mainPersonId": "sample-person-id",
+    "customerName": "Sample Customer",
+    "accountType": "Residential",
+    "accountStatus": "Open",
+    "servicePoints": [
+      {
+        "badgeNumber": "1111111",
+        "servicePointId": "top-level-service-point-id-differs-from-agreement"
+      }
+    ],
+    "serviceAgreements": [
+      {
+        "serviceTypeCode": "E",
+        "serviceSubTypeDescription": "Electric",
+        "isActive": true,
+        "premiseId": "sample-premise-id",
+        "servicePoints": [
+          {
+            "badgeNumber": "1111111",
+            "servicePointId": "sample-service-point-id"
+          }
+        ]
+      },
+      {
+        "serviceTypeCode": "M",
+        "serviceSubTypeDescription": "Service Charge",
+        "isActive": true,
+        "premiseId": "sample-premise-id",
+        "servicePoints": []
+      }
+    ]
+  },
+  "modelErrors": null
+}

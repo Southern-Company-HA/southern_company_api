@@ -16,6 +16,45 @@ async def test_can_create():
 
 
 @pytest.mark.asyncio
+async def test_get_service_point_number(datadir):
+    account_summary = json.loads((datadir / "get_account_summary.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", account_summary)
+            service_point = await acc.get_service_point_number("dummy_jwt")
+            assert service_point == "sample-service-point-id"
+            assert acc.service_point_number == "sample-service-point-id"
+            assert acc.person_id == "sample-person-id"
+            assert acc.premise_id == "sample-premise-id"
+
+
+@pytest.mark.asyncio
+async def test_get_service_point_number_empty(datadir):
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse(
+                "",
+                200,
+                "",
+                {
+                    "statusCode": 200,
+                    "status": True,
+                    "message": None,
+                    "data": {"servicePoints": []},
+                    "modelErrors": None,
+                },
+            )
+            service_point = await acc.get_service_point_number("dummy_jwt")
+            assert service_point == ""
+
+
+@pytest.mark.asyncio
 async def test_get_hourly_data(datadir):
     test_get_hourly_usage = json.loads((datadir / "get_hourly_usage.json").read_text())
     async with aiohttp.ClientSession() as session:

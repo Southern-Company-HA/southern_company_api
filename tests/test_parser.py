@@ -112,42 +112,44 @@ async def test_get_sc_web_token_wrong_login():
 
 
 @pytest.mark.asyncio
-async def test_ga_power_get_jwt_cookie(datadir):
-    ga_power_southern_jwt_cookie_header = json.loads(
-        (datadir / "ga_power_southern_jwt_cookie_header.json").read_text()
-    )
+async def test_ga_power_complete_login():
+    # As of the Sept 2026 backend migration, LoginComplete's 302 response
+    # carries no Set-Cookie header at all -- _complete_login just needs the
+    # redirect to succeed and returns nothing.
     with patch(
         "src.southern_company_api.parser.aiohttp.ClientSession.post"
     ) as mock_post, patch(
         "src.southern_company_api.parser.SouthernCompanyAPI.authenticate"
     ):
-        mock_post.return_value = MockResponse(
-            "", 302, ga_power_southern_jwt_cookie_header, ""
-        )
+        mock_post.return_value = MockResponse("", 302, {}, "")
         async with aiohttp.ClientSession() as session:
             sca = SouthernCompanyAPI("", "", session)
             sca._sc = ""
             sca._sc_expiry = datetime.datetime.now() + datetime.timedelta(hours=3)
-            token = await sca._get_southern_jwt_cookie()
-            assert token == "sample_cookie"
+            result = await sca._complete_login()
+            assert result is None
 
 
 @pytest.mark.asyncio
 async def test_ga_power_get_jwt(datadir):
+    # New flow: complete login, GET /Billing/Home, then GET the JwtToken
+    # endpoint and read the JWT off the `scjwttoken` response header
+    # (no cookies involved anywhere).
     ga_power_jwt_header = json.loads((datadir / "ga_power_jwt_header.json").read_text())
     with patch(
         "src.southern_company_api.parser.aiohttp.ClientSession.get"
     ) as mock_get, patch(
-        "src.southern_company_api.parser.SouthernCompanyAPI._get_southern_jwt_cookie"
-    ) as mock_get_cookie, patch(
+        "src.southern_company_api.parser.SouthernCompanyAPI._complete_login"
+    ) as mock_complete_login, patch(
         "src.southern_company_api.parser.jwt.decode"
     ):
         mock_get.return_value = MockResponse("", 200, ga_power_jwt_header, "")
-        mock_get_cookie.return_value.__aenter__.return_value = ""
+        mock_complete_login.return_value = None
         async with aiohttp.ClientSession() as session:
             sca = SouthernCompanyAPI("", "", session)
             token = await sca.get_jwt()
             assert token == "sample_jwt"
+            mock_complete_login.assert_called_once()
 
 
 @pytest.mark.asyncio
