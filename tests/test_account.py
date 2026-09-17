@@ -75,7 +75,14 @@ async def test_get_hourly_data(datadir):
                 datetime.datetime.now() - datetime.timedelta(days=2, hours=22),
                 "dummy_jwt",
             )
-            assert len(list(acc.hourly_data.values())) == 2
+            hours = acc.hourly_data
+            assert len(hours) == 3
+            # plain series wins over the delayed duplicate for the first hour
+            assert hours["2023-02-04T22:50:11"].usage == 0.32
+            # a delayed zero is "not reported yet", not a 0 kWh hour
+            pending = hours["2023-02-05T00:50:11"]
+            assert pending.usage is None and pending.cost is None
+            assert pending.temp == 43.5
 
 
 @pytest.mark.asyncio
