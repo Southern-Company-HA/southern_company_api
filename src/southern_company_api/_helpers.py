@@ -89,6 +89,13 @@ def series_points(graph: Mapping[str, Any], *wanted: str) -> Dict[str, float]:
     reads for buckets that were empty at first publish. Those are read *after*
     the plain series and only fill labels still missing, so a real reading
     always wins no matter which key the response happens to list first.
+
+    A delayed point with ``y == 0`` is not a reading: the hourly endpoint
+    lists every bucket the meter has not reported yet in ``usageDelayed`` /
+    ``costDelayed`` with a zero, while the daily endpoint keeps returning real
+    totals for the same days. Taking those zeros as data writes 0 kWh hours
+    that a consumer keyed on "already have a row for this hour" never
+    revisits, so they are left out and the label stays missing.
     """
     series = graph.get("series") or {}
     if not isinstance(series, Mapping):
@@ -108,11 +115,14 @@ def series_points(graph: Mapping[str, Any], *wanted: str) -> Dict[str, float]:
         )
 
     points: Dict[str, float] = {}
-    for _name, payload in matching:
+    for name, payload in matching:
+        delayed = "delayed" in name.lower()
         for point in (payload or {}).get("data") or []:
             label = point.get("name")
             value = point.get("y")
             if label is None or value is None:
+                continue
+            if delayed and not value:
                 continue
             points.setdefault(label, value)
     return points
