@@ -1,29 +1,118 @@
 {
-  "StatusCode": 200,
-  "Message": "Successfully retrieved My Power Usage data for Hourly Graph",
-  "MessageType": 0,
-  "Data": {
-    "Data": "{\"xAxis\":{\"labels\":[\"2023-02-04T22:50:11\",\"2023-02-04T23:50:11\"]},\"series\":{\"cost\":{\"data\":[{\"x\":1,\"y\":0.05,\"name\":\"2023-02-04T23:50:11\",\"resolution\":\"hourly\"}]},\"usage\":{\"data\":[{\"x\":1,\"y\":0.32,\"name\":\"2023-02-04T23:50:11\",\"resolution\":\"hourly\"}]},\"costDelayed\":{\"data\":[{\"x\":0,\"y\":0.05,\"name\":\"2023-02-04T22:50:11\",\"resolution\":\"hourly\"}]},\"usageDelayed\":{\"data\":[{\"x\":0,\"y\":0.32,\"name\":\"2023-02-04T22:50:11\",\"resolution\":\"hourly\"}]},\"temp\":{\"data\":[{\"x\":0,\"y\":44.099998474121094,\"name\":\"2023-02-04T22:50:11\",\"resolution\":\"hourly\"},{\"x\":1,\"y\":44.099998474121094,\"name\":\"2023-02-04T23:50:11\",\"resolution\":\"hourly\"}]},\"solarGeneration\":{\"data\":[]},\"solarGenerationDelayed\":{\"data\":[]}}}",
-    "ProjectedBillAmountHigh": 0.0,
-    "ProjectedBillAmountLow": 0.0,
-    "ProjectedUsageHigh": 0.0,
-    "ProjectedUsageLow": 0.0,
-    "AverageDailyCost": 0.0,
-    "AverageDailyUsage": 0.0,
-    "AverageDailyReceived": 0.0,
-    "Days": 0.0,
-    "DollarsToDate": 0.0,
-    "TotalkWhUsed": 0.0,
-    "TotalkWhReceived": 0.0,
-    "HasData": true,
-    "HasEstimatedBill": false,
-    "IsPartialMonth": false,
-    "AlertThreshold": 0,
-    "AlertThresholdExceeded": false,
-    "IsSolarActive": false,
-    "ProjectedReceivedHigh": 0.0,
-    "ProjectedReceivedLow": 0.0
+  "statusCode": 200,
+  "status": true,
+  "message": "Successfully retrieved My Power Usage data for Hourly Graph",
+  "data": {
+    "projectedBillAmountHigh": 0.0,
+    "projectedBillAmountLow": 0.0,
+    "projectedUsageHigh": 0.0,
+    "projectedUsageLow": 0.0,
+    "averageDailyCost": 0.0,
+    "averageDailyUsage": 0.0,
+    "averageDailyReceived": 0.0,
+    "days": 0.0,
+    "dollarsToDate": 0.0,
+    "totalkWhUsed": 0.0,
+    "totalkWhReceived": 0.0,
+    "hasData": true,
+    "hasEstimatedBill": false,
+    "isPartialMonth": false,
+    "alertThreshold": 0,
+    "alertThresholdExceeded": false,
+    "isSolarActive": false,
+    "projectedReceivedHigh": 0.0,
+    "projectedReceivedLow": 0.0,
+    "data": {
+      "xAxis": {
+        "labels": [
+          "2023-02-04T22:50:11",
+          "2023-02-04T23:50:11",
+          "2023-02-05T00:50:11"
+        ]
+      },
+      "series": {
+        "cost": {
+          "data": [
+            {
+              "x": 1,
+              "y": 0.05,
+              "name": "2023-02-04T23:50:11",
+              "resolution": "hourly"
+            }
+          ]
+        },
+        "usage": {
+          "data": [
+            {
+              "x": 1,
+              "y": 0.32,
+              "name": "2023-02-04T23:50:11",
+              "resolution": "hourly"
+            }
+          ]
+        },
+        "costDelayed": {
+          "data": [
+            {
+              "x": 0,
+              "y": 0.05,
+              "name": "2023-02-04T22:50:11",
+              "resolution": "hourly"
+            },
+            {
+              "x": 2,
+              "y": 0,
+              "name": "2023-02-05T00:50:11",
+              "resolution": "hourly"
+            }
+          ]
+        },
+        "usageDelayed": {
+          "data": [
+            {
+              "x": 0,
+              "y": 0.32,
+              "name": "2023-02-04T22:50:11",
+              "resolution": "hourly"
+            },
+            {
+              "x": 2,
+              "y": 0,
+              "name": "2023-02-05T00:50:11",
+              "resolution": "hourly"
+            }
+          ]
+        },
+        "temp": {
+          "data": [
+            {
+              "x": 0,
+              "y": 44.099998474121094,
+              "name": "2023-02-04T22:50:11",
+              "resolution": "hourly"
+            },
+            {
+              "x": 1,
+              "y": 44.099998474121094,
+              "name": "2023-02-04T23:50:11",
+              "resolution": "hourly"
+            },
+            {
+              "x": 2,
+              "y": 43.5,
+              "name": "2023-02-05T00:50:11",
+              "resolution": "hourly"
+            }
+          ]
+        },
+        "solarGeneration": {
+          "data": []
+        },
+        "solarGenerationDelayed": {
+          "data": []
+        }
+      }
+    }
   },
-  "ModelErrors": [],
-  "IsScApiResult": true
+  "modelErrors": null
 }
