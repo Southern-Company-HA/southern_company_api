@@ -200,3 +200,72 @@ async def test_usage_rejection_after_refresh_raises(datadir, status):
             with pytest.raises(exceptions.UsageDataFailure):
                 await acc.get_month_data("dummy_jwt")
         assert mock_get.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_get_month_data_without_totals_raises():
+    """An envelope with no summary fields is a failure, not eight zeros."""
+    empty_graph = {"statusCode": 200, "status": True, "data": {"data": {}}}
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", empty_graph)
+            with pytest.raises(exceptions.UsageDataFailure, match="dollarsToDate"):
+                await acc.get_month_data("dummy_jwt")
+
+
+@pytest.mark.asyncio
+async def test_get_month_data_without_reads_raises():
+    """What SoCo really sends for a window with no reads: hasData false, zeros."""
+    no_reads = {
+        "statusCode": 200,
+        "status": True,
+        "data": {
+            "hasData": False,
+            "dollarsToDate": 0,
+            "totalkWhUsed": 0,
+            "averageDailyUsage": 0,
+            "averageDailyCost": 0,
+            "projectedUsageLow": 0,
+            "days": 0,
+            "data": {},
+        },
+    }
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", no_reads)
+            with pytest.raises(exceptions.UsageDataFailure, match="No month data"):
+                await acc.get_month_data("dummy_jwt")
+
+
+@pytest.mark.asyncio
+async def test_get_month_data_without_projections(datadir):
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    for key in (
+        "projectedBillAmountHigh",
+        "projectedBillAmountLow",
+        "projectedUsageHigh",
+        "projectedUsageLow",
+    ):
+        del test_get_month_data["data"][key]
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", test_get_month_data)
+            month = await acc.get_month_data("dummy_jwt")
+        assert month.total_kwh_used == 97.0
+        assert month.projected_usage_low is None
+        assert month.projected_bill_amount_high is None

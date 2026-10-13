@@ -95,10 +95,12 @@ class MonthlyUsage:
     total_kwh_used: float
     average_daily_usage: float
     average_daily_cost: float
-    projected_usage_low: float
-    projected_usage_high: float
-    projected_bill_amount_low: float
-    projected_bill_amount_high: float
+    # Projections are only published once SoCo has an estimated bill for the
+    # period (hasEstimatedBill), so they can be absent; None, not 0.
+    projected_usage_low: Optional[float]
+    projected_usage_high: Optional[float]
+    projected_bill_amount_low: Optional[float]
+    projected_bill_amount_high: Optional[float]
 
 
 class DailyEnergyUsageList:
@@ -412,17 +414,35 @@ class Account:
             today,
             {"intervalBehavior": "Automatic"},
         )
+        if first(payload, "hasData") is False:
+            # A window with no reads yet comes back with every total present
+            # and 0 (seen live), which is not a month of zero usage either.
+            raise UsageDataFailure(
+                f"No month data yet for account ending {str(self.number)[-4:]}"
+            )
+        totals = {
+            key: first(payload, key)
+            for key in (
+                "dollarsToDate",
+                "totalkWhUsed",
+                "averageDailyUsage",
+                "averageDailyCost",
+            )
+        }
+        missing = [key for key, value in totals.items() if value is None]
+        if missing:
+            # An envelope without the totals is not a month of zero usage.
+            raise UsageDataFailure(
+                f"Month data for account ending {str(self.number)[-4:]} "
+                f"is missing {', '.join(missing)}"
+            )
         return MonthlyUsage(
-            dollars_to_date=first(payload, "dollarsToDate", default=0),
-            total_kwh_used=first(payload, "totalkWhUsed", default=0),
-            average_daily_usage=first(payload, "averageDailyUsage", default=0),
-            average_daily_cost=first(payload, "averageDailyCost", default=0),
-            projected_usage_low=first(payload, "projectedUsageLow", default=0),
-            projected_usage_high=first(payload, "projectedUsageHigh", default=0),
-            projected_bill_amount_low=first(
-                payload, "projectedBillAmountLow", default=0
-            ),
-            projected_bill_amount_high=first(
-                payload, "projectedBillAmountHigh", default=0
-            ),
+            dollars_to_date=totals["dollarsToDate"],
+            total_kwh_used=totals["totalkWhUsed"],
+            average_daily_usage=totals["averageDailyUsage"],
+            average_daily_cost=totals["averageDailyCost"],
+            projected_usage_low=first(payload, "projectedUsageLow"),
+            projected_usage_high=first(payload, "projectedUsageHigh"),
+            projected_bill_amount_low=first(payload, "projectedBillAmountLow"),
+            projected_bill_amount_high=first(payload, "projectedBillAmountHigh"),
         )
