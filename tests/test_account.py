@@ -5,7 +5,7 @@ from unittest.mock import patch
 import aiohttp
 import pytest
 
-from southern_company_api import Account, Company
+from southern_company_api import Account, Company, exceptions
 from tests import MockResponse
 
 
@@ -66,6 +66,7 @@ async def test_get_hourly_data(datadir):
     async with aiohttp.ClientSession() as session:
         acc = Account("sample", True, "1", Company.GPC, session)
         acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
         with patch(
             "src.southern_company_api.account.aiohttp.ClientSession.get"
         ) as mock_get:
@@ -91,6 +92,7 @@ async def test_ga_power_get_monthly_data(datadir):
     async with aiohttp.ClientSession() as session:
         acc = Account("sample", True, "1", Company.GPC, session)
         acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
         with patch(
             "src.southern_company_api.account.aiohttp.ClientSession.get"
         ) as mock_get:
@@ -104,3 +106,97 @@ async def test_ga_power_get_monthly_data(datadir):
         assert month.projected_usage_low == 419.0
         assert month.projected_bill_amount_high == 91.0
         assert month.projected_bill_amount_low == 60.0
+
+
+def _usage_url(mock_get, call):
+    return mock_get.call_args_list[call].args[0]
+
+
+@pytest.mark.asyncio
+async def test_usage_ids_reused_under_same_jwt(datadir):
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", test_get_month_data)
+            await acc.get_month_data("dummy_jwt")
+        assert mock_get.call_count == 1
+        assert "UsageGraphData" in _usage_url(mock_get, 0)
+
+
+@pytest.mark.asyncio
+async def test_usage_ids_refreshed_on_new_jwt(datadir):
+    """Ids resolved under an expired JWT are not sent with its replacement."""
+    account_summary = json.loads((datadir / "account_summary.json").read_text())
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS, serviceAgreementId="CfDJ8-stale")
+        acc.usage_ids_jwt = "old_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.side_effect = [
+                MockResponse("", 200, "", account_summary),
+                MockResponse("", 200, "", test_get_month_data),
+            ]
+            month = await acc.get_month_data("new_jwt")
+        assert month.total_kwh_used == 97.0
+        assert _usage_url(mock_get, 0).endswith("/Summary")
+        assert "CfDJ8-sample-agreement" in _usage_url(mock_get, 1)
+        auth = mock_get.call_args_list[1].kwargs["headers"]["Authorization"]
+        assert auth == "Bearer new_jwt"
+        assert acc.usage_ids_jwt == "new_jwt"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 500])
+async def test_usage_ids_refreshed_on_rejection(datadir, status):
+    """A rejection with cached ids re-resolves them once and retries.
+
+    SoCo answers an id it cannot decrypt with a 500, not a 401.
+    """
+    account_summary = json.loads((datadir / "account_summary.json").read_text())
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS, serviceAgreementId="CfDJ8-stale")
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.side_effect = [
+                MockResponse("", status, "", None),
+                MockResponse("", 200, "", account_summary),
+                MockResponse("", 200, "", test_get_month_data),
+            ]
+            month = await acc.get_month_data("dummy_jwt")
+        assert month.total_kwh_used == 97.0
+        assert "CfDJ8-stale" in _usage_url(mock_get, 0)
+        assert _usage_url(mock_get, 1).endswith("/Summary")
+        assert "CfDJ8-sample-agreement" in _usage_url(mock_get, 2)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 500])
+async def test_usage_rejection_after_refresh_raises(datadir, status):
+    account_summary = json.loads((datadir / "account_summary.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.side_effect = [
+                MockResponse("", status, "", None),
+                MockResponse("", 200, "", account_summary),
+                MockResponse("", status, "", None),
+            ]
+            with pytest.raises(exceptions.UsageDataFailure):
+                await acc.get_month_data("dummy_jwt")
+        assert mock_get.call_count == 3

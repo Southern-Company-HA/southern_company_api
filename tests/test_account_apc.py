@@ -27,6 +27,7 @@ async def test_apc_get_hourly_data(datadir):
             "personId": "CfDJ8-sample-person",
             "operatingCompany": "APC",
         }
+        acc.usage_ids_jwt = "dummy_jwt"
         with patch(
             "src.southern_company_api.account.aiohttp.ClientSession.get"
         ) as mock_get:
@@ -51,6 +52,7 @@ async def test_apc_get_monthly_data(datadir):
             "personId": "CfDJ8-sample-person",
             "operatingCompany": "APC",
         }
+        acc.usage_ids_jwt = "dummy_jwt"
         with patch(
             "src.southern_company_api.account.aiohttp.ClientSession.get"
         ) as mock_get:

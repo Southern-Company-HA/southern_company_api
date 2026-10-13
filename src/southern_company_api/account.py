@@ -145,6 +145,10 @@ class Account:
         # Opaque, session-scoped ids the usage endpoints are keyed on. Filled by
         # get_service_point_number(); see _usage_params for how they are used.
         self.usage_ids: Dict[str, Any] = {}
+        # The JWT usage_ids were resolved under. The caller renews its JWT on
+        # expiry but keeps this Account, so ids are only reused with the token
+        # that fetched them.
+        self.usage_ids_jwt: Optional[str] = None
 
     def _headers(self, jwt: str) -> Dict[str, str]:
         headers = dict(API_HEADERS)
@@ -156,9 +160,9 @@ class Account:
 
         The summary is also the only source of the opaque ``CfDJ8...`` ids
         (service agreement, service point, premise) and the person id that every
-        usage request needs, so they are cached on the account here. They are
-        session-scoped, so they are refreshed whenever this is called rather
-        than persisted.
+        usage request needs, so they are cached on the account here together
+        with the JWT they were resolved under. They are session-scoped, so
+        they are refreshed whenever this is called rather than persisted.
         """
         try:
             async with self.session.get(
@@ -195,6 +199,7 @@ class Account:
                 str(self.number)[-4:],
             )
             self.usage_ids = {}
+            self.usage_ids_jwt = None
             self.service_point_number = ""
             return ""
 
@@ -222,15 +227,21 @@ class Account:
                 {key: bool(value) for key, value in ids.items()},
             )
             self.usage_ids = {}
+            self.usage_ids_jwt = None
             self.service_point_number = ""
             return ""
 
         self.usage_ids = ids
+        self.usage_ids_jwt = jwt
         self.service_point_number = str(ids["servicePointId"])
         return self.service_point_number
 
-    async def _usage_ids(self, jwt: str) -> Dict[str, Any]:
-        if not self.usage_ids.get("serviceAgreementId"):
+    async def _usage_ids(self, jwt: str, refresh: bool = False) -> Dict[str, Any]:
+        if (
+            refresh
+            or jwt != self.usage_ids_jwt
+            or not self.usage_ids.get("serviceAgreementId")
+        ):
             await self.get_service_point_number(jwt)
         if not self.usage_ids.get("serviceAgreementId"):
             raise UsageDataFailure(
@@ -263,30 +274,44 @@ class Account:
         end_date: datetime.datetime,
         extra_params: Optional[Dict[str, Any]] = None,
     ) -> Mapping[str, Any]:
-        """GET one UsageGraphData payload and return its unwrapped body."""
-        ids = await self._usage_ids(jwt)
-        params = self._usage_params(ids, start_date, end_date)
-        params.update(extra_params or {})
+        """GET one UsageGraphData payload and return its unwrapped body.
+
+        A rejected request re-resolves the ids and retries once. Ids survive
+        a JWT renewal in practice, but SoCo answers an id it cannot decrypt
+        (e.g. after a server-side key rotation) with a 500 rather than a 401,
+        so both are treated as possibly stale ids.
+        """
         what = f"{granularity.lower()} data"
-        async with self.session.get(
-            USAGE_GRAPH_DATA_URL.format(
-                agreement=ids["serviceAgreementId"], granularity=granularity
-            ),
-            headers=self._headers(jwt),
-            params=params,
-        ) as resp:
-            if resp.status != 200:
-                raise UsageDataFailure(f"Failed to get {what}: {resp.status}")
-            try:
-                response = await resp.json()
-            except (ContentTypeError, json.JSONDecodeError) as err:
+        response: Any = None
+        for attempt in range(2):
+            ids = await self._usage_ids(jwt, refresh=attempt > 0)
+            params = self._usage_params(ids, start_date, end_date)
+            params.update(extra_params or {})
+            async with self.session.get(
+                USAGE_GRAPH_DATA_URL.format(
+                    agreement=ids["serviceAgreementId"], granularity=granularity
+                ),
+                headers=self._headers(jwt),
+                params=params,
+            ) as resp:
+                if resp.status in (401, 403, 500) and attempt == 0:
+                    _LOGGER.debug(
+                        "Got %s for %s; re-resolving usage ids", resp.status, what
+                    )
+                    continue
+                if resp.status != 200:
+                    raise UsageDataFailure(f"Failed to get {what}: {resp.status}")
                 try:
-                    error_text = await resp.text()
-                except aiohttp.ClientError:
-                    error_text = str(err)
-                raise CantReachSouthernCompany(
-                    f"Incorrect mimetype while trying to get {what}. {error_text}"
-                ) from err
+                    response = await resp.json()
+                except (ContentTypeError, json.JSONDecodeError) as err:
+                    try:
+                        error_text = await resp.text()
+                    except aiohttp.ClientError:
+                        error_text = str(err)
+                    raise CantReachSouthernCompany(
+                        f"Incorrect mimetype while trying to get {what}. {error_text}"
+                    ) from err
+            break
         try:
             payload = unwrap(response, what)
         except KeyError as err:
