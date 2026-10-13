@@ -401,16 +401,21 @@ class Account:
     async def get_month_data(self, jwt: str) -> MonthlyUsage:
         """Gets monthly data such as usage so far.
 
-        Keeps the historic window -- first of the calendar month through today,
-        not the current bill period -- so the numbers mean what they did before
-        the API migration.
+        dollarsToDate and totalkWhUsed are the current bill period to date
+        whatever window is requested; the window -- first of the calendar
+        month up to today -- only scopes the daily averages and projections.
         """
         today = datetime.datetime.now()
-        first_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if start.date() == today.date():
+            # The end date is exclusive and a window that starts and ends on
+            # the same date is rejected with a 400, which is every 1st of the
+            # month; take yesterday instead.
+            start -= datetime.timedelta(days=1)
         payload = await self._usage_graph_data(
             jwt,
             "Daily",
-            first_of_month,
+            start,
             today,
             {"intervalBehavior": "Automatic"},
         )

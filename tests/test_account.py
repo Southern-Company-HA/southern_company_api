@@ -269,3 +269,38 @@ async def test_get_month_data_without_projections(datadir):
         assert month.total_kwh_used == 97.0
         assert month.projected_usage_low is None
         assert month.projected_bill_amount_high is None
+
+
+class _FixedNow(datetime.datetime):
+    fixed = datetime.datetime(2026, 10, 1, 9, 30)
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.fixed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "now, start",
+    [
+        # SoCo rejects a same-date window, so the 1st reaches back a day
+        (datetime.datetime(2026, 10, 1, 9, 30), "09/30/2026"),
+        (datetime.datetime(2026, 10, 13, 9, 30), "10/01/2026"),
+    ],
+)
+async def test_get_month_data_window(datadir, now, start):
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get, patch.object(_FixedNow, "fixed", now), patch(
+            "src.southern_company_api.account.datetime.datetime", _FixedNow
+        ):
+            mock_get.return_value = MockResponse("", 200, "", test_get_month_data)
+            await acc.get_month_data("dummy_jwt")
+        params = mock_get.call_args.kwargs["params"]
+        assert params["startDate"] == start
+        assert params["endDate"] == now.strftime("%m/%d/%Y")
