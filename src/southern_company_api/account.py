@@ -4,6 +4,7 @@ import json
 import logging
 import math
 from typing import Any, Dict, List, Mapping, Optional
+from zoneinfo import ZoneInfo
 
 import aiohttp
 from aiohttp import ContentTypeError
@@ -16,9 +17,25 @@ from ._helpers import (
     series_points,
     unwrap,
 )
+from .billing import BillingPeriod, BillSummary, RatePlan
 from .company import Company
-from .constants import ACCOUNT_SUMMARY_URL, API_HEADERS, USAGE_GRAPH_DATA_URL
+from .constants import (
+    ACCOUNT_SUMMARY_URL,
+    API_HEADERS,
+    BILL_IMAGE_URL,
+    BILL_PERIODS_URL,
+    BILL_SUMMARY_URL,
+    USAGE_ELIGIBILITY_URL,
+    USAGE_GRAPH_DATA_URL,
+)
 from .exceptions import CantReachSouthernCompany, UsageDataFailure
+from .readings import (
+    ReadingStatus,
+    actual_points,
+    label_is_ambiguous,
+    local_timestamp,
+    reading_status,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -83,6 +100,10 @@ class HourlyEnergyUsage:
     usage: Optional[float]
     cost: Optional[float]
     temp: Optional[float]
+    # The portal can collapse the repeated autumn hour into one label.
+    timestamp_ambiguous: bool = False
+    usage_estimated: bool = False
+    cost_estimated: bool = False
 
 
 @dataclasses.dataclass
@@ -131,6 +152,8 @@ class Account:
         number: str,
         company: Company,
         session: aiohttp.ClientSession,
+        *,
+        usage_timezone: Optional[str] = None,
     ):
         self.name = name
         self.primary = primary
@@ -139,6 +162,18 @@ class Account:
         self.hourly_data: Dict[str, HourlyEnergyUsage] = {}
         self.daily_data: Dict[str, DailyEnergyUsage] = {}
         self.session = session
+        # Georgia Power civil-time labels verified against live DST windows.
+        # Other operating companies retain legacy parsing until verified or
+        # explicitly configured by the caller; do not assume HA's timezone.
+        timezone_name = usage_timezone or (
+            "America/New_York" if company == Company.GPC else None
+        )
+        self.usage_timezone = ZoneInfo(timezone_name) if timezone_name else None
+        self.hourly_status: Optional[ReadingStatus] = None
+        self.daily_status: Optional[ReadingStatus] = None
+        self.hourly_time_of_use: Optional[List[Mapping[str, Any]]] = None
+        self.rate_plan: Optional[RatePlan] = None
+        self.rate_plan_jwt: Optional[str] = None
         self.service_point_number: Optional[str] = None
         # Opaque, session-scoped ids the usage endpoints are keyed on. Filled by
         # get_service_point_number(); see _usage_params for how they are used.
@@ -288,7 +323,13 @@ class Account:
             "endDate": end_date.strftime("%m/%d/%Y"),
             "servicePointId": ids.get("servicePointId") or "",
             "premiseId": ids.get("premiseId") or "",
-            "billFactorCode": "null",
+            "billFactorCode": (
+                self.rate_plan.bill_factor_code
+                if self.rate_plan is not None
+                and self.rate_plan_jwt == self.usage_ids_jwt
+                and self.rate_plan.bill_factor_code is not None
+                else "null"
+            ),
         }
 
     async def _usage_graph_data(
@@ -357,6 +398,12 @@ class Account:
             {"intervalBehavior": "Automatic"},
         )
         days = DailyEnergyUsageList(payload.get("data") or {}).usage()
+        if self.usage_timezone is not None:
+            for day in days:
+                day.date = local_timestamp(day.date.isoformat(), self.usage_timezone)
+            self.daily_status = reading_status(
+                payload.get("data") or {}, "daily", self.usage_timezone
+            )
         self.daily_data = {str(day.date): day for day in days}
         return days
 
@@ -399,22 +446,30 @@ class Account:
             {"intervalBehavior": "Automatic"},
         )
         graph = payload.get("data") or {}
+        self.hourly_time_of_use = first(graph, "timeOfUse")
+        if self.usage_timezone is not None:
+            self.hourly_status = reading_status(graph, "hourly", self.usage_timezone)
         cost = series_points(graph, "cost")
         usage = series_points(graph, "usage")
         temp = series_points(graph, "temp")
 
+        actual_usage = actual_points(graph, "usage")
+        actual_cost = actual_points(graph, "cost")
         return_dates = []
         for date in graph_labels(graph):
-            # TODO: Determine timezone
-            parsed_date = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
-            parsed_date = parsed_date.replace(
-                tzinfo=datetime.timezone(datetime.timedelta(hours=-5), "EST")
+            parsed_date = local_timestamp(
+                date,
+                self.usage_timezone
+                or datetime.timezone(datetime.timedelta(hours=-5), "EST"),
             )
             self.hourly_data[date] = HourlyEnergyUsage(
                 time=parsed_date,
                 usage=usage.get(date),
                 cost=cost.get(date),
                 temp=temp.get(date),
+                timestamp_ambiguous=label_is_ambiguous(date, parsed_date),
+                usage_estimated=date in usage and date not in actual_usage,
+                cost_estimated=date in cost and date not in actual_cost,
             )
             return_dates.append(self.hourly_data[date])
         if not return_dates:
@@ -474,3 +529,97 @@ class Account:
             projected_bill_amount_low=first(payload, "projectedBillAmountLow"),
             projected_bill_amount_high=first(payload, "projectedBillAmountHigh"),
         )
+
+    async def _billing_json(
+        self, url: str, jwt: str, params: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """Read a billing envelope; never include private response bodies in errors."""
+        async with self.session.get(
+            url, headers=self._headers(jwt), params=params
+        ) as resp:
+            if resp.status != 200:
+                raise UsageDataFailure(f"Failed to get billing metadata: {resp.status}")
+            try:
+                body = await resp.json()
+                if first(body, "status") is False:
+                    raise UsageDataFailure("Billing API rejected metadata request")
+                return unwrap(body, "billing metadata")
+            except (ContentTypeError, json.JSONDecodeError, KeyError) as err:
+                raise UsageDataFailure("Invalid billing metadata response") from err
+
+    async def get_billing_periods(
+        self, start_date: datetime.datetime, end_date: datetime.datetime, jwt: str
+    ) -> List[BillingPeriod]:
+        """Portal usage periods, including the scheduled current period.
+
+        Boundaries are date-like local wall times; the last end is scheduled,
+        not proof of a completed bill. These differ from issued bill dates.
+        """
+        ids = await self._usage_ids(jwt)
+        params = {
+            "ServiceAgreementId": ids["serviceAgreementId"],
+            "ServicePointId": ids["servicePointId"],
+            "PremiseId": ids.get("premiseId") or "",
+            "OperatingCompany": ids["operatingCompany"],
+            "StartDate": start_date.strftime("%m/%d/%Y"),
+            "EndDate": end_date.strftime("%m/%d/%Y"),
+        }
+        payload = await self._billing_json(BILL_PERIODS_URL, jwt, params)
+        if not isinstance(payload, list) or any(
+            not isinstance(item, Mapping) for item in payload
+        ):
+            raise UsageDataFailure("Unexpected BillPeriods payload")
+        return [BillingPeriod.from_portal(item) for item in payload]
+
+    async def get_bill_summary(self, jwt: str) -> BillSummary:
+        """Latest issued bill, not the usage graph's to-date estimate."""
+        payload = await self._billing_json(
+            BILL_SUMMARY_URL.format(account=self.number), jwt
+        )
+        if not isinstance(payload, Mapping):
+            raise UsageDataFailure("Unexpected bill summary payload")
+        return BillSummary.from_portal(payload)
+
+    async def get_rate_plan(self, jwt: str) -> RatePlan:
+        """Read the account's actual schedule code and optional bill factor.
+
+        The eligibility API does not return tier prices or tax rules. Keep
+        published tariff references separate from this account-specific fact.
+        """
+        ids = await self._usage_ids(jwt)
+        payload = await self._billing_json(
+            USAGE_ELIGIBILITY_URL.format(
+                agreement=ids["serviceAgreementId"],
+                company=ids["operatingCompany"],
+            ),
+            jwt,
+        )
+        if not isinstance(payload, Mapping):
+            raise UsageDataFailure("Unexpected usage eligibility payload")
+        plan = RatePlan.from_portal(payload)
+        self.rate_plan = plan
+        self.rate_plan_jwt = jwt
+        return plan
+
+    async def get_bill_pdf(self, summary: BillSummary, jwt: str) -> bytes:
+        """Download the selected issued statement for itemized fees/credits.
+
+        This is personal account data. Do not log or publish the document.
+        No PDF extraction dependency is imposed on API consumers.
+        """
+        if not summary.bill_id or summary.bill_date is None:
+            raise UsageDataFailure("Bill summary has no statement reference")
+        params = {
+            "accountId": self.number,
+            "billId": summary.bill_id,
+            "billDate": summary.bill_date.isoformat(),
+        }
+        async with self.session.get(
+            BILL_IMAGE_URL, headers=self._headers(jwt), params=params
+        ) as resp:
+            if resp.status != 200:
+                raise UsageDataFailure(f"Failed to get bill PDF: {resp.status}")
+            document = await resp.read()
+            if not document.startswith(b"%PDF-"):
+                raise UsageDataFailure("Bill image response is not a PDF")
+            return document

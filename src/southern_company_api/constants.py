@@ -41,6 +41,11 @@ ACCOUNT_SUMMARY_URL = f"{ACCOUNT_API_BASE}/Accounts/{{account}}/Summary"
 USAGE_GRAPH_DATA_URL = f"{MPU_API_BASE}/UsageGraphData/{{agreement}}/{{granularity}}"
 BILL_PERIODS_URL = f"{MPU_API_BASE}/BillPeriods"
 
+BILLING_API_BASE = "https://occbillingapi.southerncompany.com/api/v1/Billing"
+BILL_SUMMARY_URL = f"{BILLING_API_BASE}/billSummary/{{account}}"
+BILL_IMAGE_URL = f"{BILLING_API_BASE}/billImage"
+USAGE_ELIGIBILITY_URL = f"{MPU_API_BASE}/EligibilityDetails/{{agreement}}/{{company}}"
+
 EMAIL_VALIDATION_URL = f"{CS_BASE}/MyProfile/LoginInfo"
 
 # --- Header dicts ----------------------------------------------------------

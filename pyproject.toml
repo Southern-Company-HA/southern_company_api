@@ -23,6 +23,7 @@ packages = [{ include = "southern_company_api", from = "src" }]
 python = "^3.10"
 aiohttp = "^3.8.1"
 PyJWT = "^2.0"
+tzdata = ">=2024.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0"
