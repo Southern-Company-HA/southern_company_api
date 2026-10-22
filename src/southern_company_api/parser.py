@@ -407,7 +407,7 @@ class SouthernCompanyAPI:
                                 "accountName",
                                 default=f"Account {number}",
                             ),
-                            primary=first(account, "primaryAccount", "PrimaryAccount")
+                            primary=first(account, "isPrimaryAccount", "primaryAccount")
                             in ("Y", "y", True),
                             number=str(number),
                             company=company_from(
