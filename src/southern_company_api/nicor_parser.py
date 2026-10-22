@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 import json
 import re
+from html.parser import HTMLParser
 from typing import Any
 
 import aiohttp
@@ -23,6 +24,65 @@ from .nicor_account import (
 )
 
 _WEEKEND_DAYS = frozenset({"Saturday", "Sunday"})
+
+# The customer portal can return an HTTP 200 incident/interstitial page to
+# clients that do not resemble a browser. Keep these to standard navigation
+# headers so callers can still provide their own session settings.
+_BROWSER_HEADERS = {
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    ),
+    "Upgrade-Insecure-Requests": "1",
+}
+
+
+class _RequestVerificationTokenParser(HTMLParser):
+    """Extract the ASP.NET verification token from a login form."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.token: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "input" or self.token is not None:
+            return
+        attributes = {name.lower(): value for name, value in attrs if name is not None}
+        input_name = attributes.get("name")
+        if (
+            input_name is not None
+            and input_name.lower() == "__requestverificationtoken"
+        ):
+            self.token = attributes.get("value")
+
+
+def _extract_request_verification_token(html: str) -> str | None:
+    """Return the verification token from HTML without retaining page content."""
+    parser = _RequestVerificationTokenParser()
+    parser.feed(html)
+    return parser.token
+
+
+def _is_antibot_interstitial(html: str) -> bool:
+    """Identify common challenge pages without exposing their response bodies."""
+    page = html.lower()
+    return any(
+        marker in page
+        for marker in (
+            "cf-chl-",
+            "challenge-platform",
+            "captcha",
+            "recaptcha",
+            "turnstile",
+            "incident id",
+            "access denied",
+        )
+    )
 
 
 class NicorGasAPI:
@@ -49,6 +109,7 @@ class NicorGasAPI:
         async with self.session.get(
             f"{self._BASE_URL}/User/Login",
             params={"LDC": self._LDC},
+            headers=_BROWSER_HEADERS,
         ) as resp:
             if resp.status != 200:
                 raise CantReachSouthernCompany(
@@ -56,18 +117,16 @@ class NicorGasAPI:
                 )
             html = await resp.text()
 
-        # Handle either attribute order of the hidden <input>
-        match = re.search(
-            r'<input\b[^>]*\bname="__RequestVerificationToken"[^>]*\bvalue="([^"]+)"'
-            r'|<input\b[^>]*\bvalue="([^"]+)"[^>]*\bname="__RequestVerificationToken"',
-            html,
-            re.IGNORECASE,
-        )
-        if not match:
+        token = _extract_request_verification_token(html)
+        if not token:
+            if _is_antibot_interstitial(html):
+                raise NoRequestTokenFound(
+                    "Nicor login page was blocked by an anti-bot interstitial"
+                )
             raise NoRequestTokenFound(
                 "Could not find __RequestVerificationToken in Nicor login page"
             )
-        return match.group(1) or match.group(2)
+        return token
 
     async def _login(self, token: str) -> None:
         form_data = {
@@ -80,6 +139,7 @@ class NicorGasAPI:
             "loginbtn": "Login",
         }
         login_headers = {
+            **_BROWSER_HEADERS,
             "Referer": f"{self._BASE_URL}/User/Login?LDC={self._LDC}",
         }
         async with self.session.post(
@@ -94,7 +154,10 @@ class NicorGasAPI:
                 )
 
     async def _complete_session(self) -> None:
-        async with self.session.get(f"{self._BASE_URL}/Account/AccountSummary") as resp:
+        async with self.session.get(
+            f"{self._BASE_URL}/Account/AccountSummary",
+            headers=_BROWSER_HEADERS,
+        ) as resp:
             if resp.status != 200:
                 raise CantReachSouthernCompany(
                     f"Failed to complete Nicor session: {resp.status}"
@@ -103,7 +166,8 @@ class NicorGasAPI:
     async def get_usage_history(self) -> NicorUsageHistory:
         """Fetch and parse the full usage history from the portal."""
         async with self.session.get(
-            f"{self._BASE_URL}/MeterDataManagement/UsageHistory"
+            f"{self._BASE_URL}/MeterDataManagement/UsageHistory",
+            headers=_BROWSER_HEADERS,
         ) as resp:
             if resp.status != 200:
                 raise UsageDataFailure(
@@ -122,6 +186,10 @@ class NicorGasAPI:
 
         vmodel_match = re.search(r"var vmodel = '(.+?)';", html, re.DOTALL)
         if not vmodel_match:
+            if _is_antibot_interstitial(html):
+                raise UsageDataFailure(
+                    "Nicor usage history page was blocked by an anti-bot interstitial"
+                )
             raise UsageDataFailure("Could not find vmodel in Nicor usage history page")
 
         vmodel: dict[str, Any] = json.loads(vmodel_match.group(1))

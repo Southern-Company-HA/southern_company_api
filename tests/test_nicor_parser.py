@@ -12,7 +12,11 @@ from southern_company_api.exceptions import (
     UsageDataFailure,
 )
 from southern_company_api.nicor_account import NicorUsageHistory, parse_aspnet_date
-from southern_company_api.nicor_parser import NicorGasAPI, _parse_usage_history
+from southern_company_api.nicor_parser import (
+    _BROWSER_HEADERS,
+    NicorGasAPI,
+    _parse_usage_history,
+)
 from tests import MockResponse
 
 _LOGIN_PAGE_HTML = """
@@ -30,6 +34,16 @@ _LOGIN_PAGE_HTML_VALUE_FIRST = """
 <html><body>
 <input value="test_token_xyz" name="__RequestVerificationToken" type="hidden" />
 </body></html>
+"""
+
+_LOGIN_PAGE_HTML_SINGLE_QUOTES = """
+<html><body>
+<input type='hidden' value='test_token_single_quotes' name='__RequestVerificationToken'>
+</body></html>
+"""
+
+_ANTIBOT_INTERSTITIAL_HTML = """
+<html><body><p>Request blocked. Incident ID: example</p></body></html>
 """
 
 
@@ -167,6 +181,11 @@ async def test_nicor_get_request_verification_token():
             mock_get.return_value = MockResponse(_LOGIN_PAGE_HTML, 200, {}, {})
             token = await api._get_request_verification_token()
             assert token == "test_token_abc"
+            mock_get.assert_called_once_with(
+                f"{api._BASE_URL}/User/Login",
+                params={"LDC": "7"},
+                headers=_BROWSER_HEADERS,
+            )
 
 
 @pytest.mark.asyncio
@@ -184,6 +203,20 @@ async def test_nicor_get_request_verification_token_value_first():
 
 
 @pytest.mark.asyncio
+async def test_nicor_get_request_verification_token_single_quotes():
+    async with aiohttp.ClientSession() as session:
+        api = NicorGasAPI("user", "pass", session)
+        with patch(
+            "southern_company_api.nicor_parser.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse(
+                _LOGIN_PAGE_HTML_SINGLE_QUOTES, 200, {}, {}
+            )
+            token = await api._get_request_verification_token()
+            assert token == "test_token_single_quotes"
+
+
+@pytest.mark.asyncio
 async def test_nicor_get_request_verification_token_not_found():
     async with aiohttp.ClientSession() as session:
         api = NicorGasAPI("user", "pass", session)
@@ -198,6 +231,20 @@ async def test_nicor_get_request_verification_token_not_found():
 
 
 @pytest.mark.asyncio
+async def test_nicor_get_request_verification_token_antibot_interstitial():
+    async with aiohttp.ClientSession() as session:
+        api = NicorGasAPI("user", "pass", session)
+        with patch(
+            "southern_company_api.nicor_parser.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse(
+                _ANTIBOT_INTERSTITIAL_HTML, 200, {}, {}
+            )
+            with pytest.raises(NoRequestTokenFound, match="anti-bot interstitial"):
+                await api._get_request_verification_token()
+
+
+@pytest.mark.asyncio
 async def test_nicor_login_success():
     async with aiohttp.ClientSession() as session:
         api = NicorGasAPI("user", "pass", session)
@@ -206,6 +253,21 @@ async def test_nicor_login_success():
         ) as mock_post:
             mock_post.return_value = MockResponse("", 302, {}, {})
             await api._login("token")
+            mock_post.assert_called_once_with(
+                f"{api._BASE_URL}/User/Login",
+                data={
+                    "__RequestVerificationToken": "token",
+                    "UserName": "user",
+                    "Password": "pass",
+                    "RememberMe": "false",
+                    "loginbtn": "Login",
+                },
+                headers={
+                    **_BROWSER_HEADERS,
+                    "Referer": f"{api._BASE_URL}/User/Login?LDC=7",
+                },
+                allow_redirects=False,
+            )
 
 
 @pytest.mark.asyncio
@@ -229,6 +291,10 @@ async def test_nicor_complete_session_success():
         ) as mock_get:
             mock_get.return_value = MockResponse("", 200, {}, {})
             await api._complete_session()
+            mock_get.assert_called_once_with(
+                f"{api._BASE_URL}/Account/AccountSummary",
+                headers=_BROWSER_HEADERS,
+            )
 
 
 @pytest.mark.asyncio
@@ -285,6 +351,10 @@ async def test_nicor_get_usage_history(datadir):
             assert api._account_id == "99999"
             assert len(history.billing_periods) == 2
             assert len(history.daily_usage) == 3
+            mock_get.assert_called_once_with(
+                f"{api._BASE_URL}/MeterDataManagement/UsageHistory",
+                headers=_BROWSER_HEADERS,
+            )
 
 
 @pytest.mark.asyncio
@@ -298,6 +368,20 @@ async def test_nicor_get_usage_history_no_vmodel():
                 "<html><body></body></html>", 200, {}, {}
             )
             with pytest.raises(UsageDataFailure):
+                await api.get_usage_history()
+
+
+@pytest.mark.asyncio
+async def test_nicor_get_usage_history_antibot_interstitial():
+    async with aiohttp.ClientSession() as session:
+        api = NicorGasAPI("user", "pass", session)
+        with patch(
+            "southern_company_api.nicor_parser.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse(
+                _ANTIBOT_INTERSTITIAL_HTML, 200, {}, {}
+            )
+            with pytest.raises(UsageDataFailure, match="anti-bot interstitial"):
                 await api.get_usage_history()
 
 
