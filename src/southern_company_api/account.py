@@ -17,11 +17,7 @@ from ._helpers import (
     unwrap,
 )
 from .company import Company
-from .constants import (
-    ACCOUNT_SUMMARY_URL,
-    API_HEADERS,
-    USAGE_GRAPH_DATA_URL,
-)
+from .constants import ACCOUNT_SUMMARY_URL, API_HEADERS, USAGE_GRAPH_DATA_URL
 from .exceptions import CantReachSouthernCompany, UsageDataFailure
 
 _LOGGER = logging.getLogger(__name__)
@@ -205,11 +201,38 @@ class Account:
             self.service_point_number = ""
             return ""
 
-        # The service point usually lives in a top-level servicePoints[] array
-        # rather than inside the agreement, so fall back to it explicitly.
+        # Top-level points can belong to a different agreement. Match by meter
+        # badge, since the API independently encrypts IDs in the sibling arrays.
         service_point = deep_find(agreement, "servicePointId")
         if not service_point:
-            service_point = deep_find(first(summary, "servicePoints"), "servicePointId")
+            points = [
+                point
+                for point in first(summary, "servicePoints", default=[]) or []
+                if isinstance(point, Mapping) and first(point, "servicePointId")
+            ]
+            badge = deep_find(agreement, "badgeNumber")
+            agreements = [
+                entry
+                for entry in first(summary, "serviceAgreements", default=[]) or []
+                if isinstance(entry, Mapping)
+            ]
+            if badge:
+                candidates = [
+                    point for point in points if first(point, "badgeNumber") == badge
+                ]
+            else:
+                # Without a link, only one agreement AND one point is safe.
+                candidates = points if len(agreements) == 1 else []
+            if len(candidates) == 1:
+                service_point = first(candidates[0], "servicePointId")
+            elif points:
+                self.usage_ids = {}
+                self.usage_ids_jwt = None
+                self.service_point_number = ""
+                raise UsageDataFailure(
+                    "Could not unambiguously resolve service point for account "
+                    f"ending {str(self.number)[-4:]}"
+                )
 
         ids = {
             "serviceAgreementId": first(agreement, "serviceAgreementId"),

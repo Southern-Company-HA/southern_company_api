@@ -61,6 +61,65 @@ async def test_get_service_point_number_picks_electric_agreement(datadir):
 
 
 @pytest.mark.asyncio
+async def test_service_point_fallback_matches_agreement_badge(datadir):
+    summary = json.loads((datadir / "account_summary_multi.json").read_text())
+    electric = summary["data"]["serviceAgreements"][1]
+    # Independently encrypted IDs cannot be compared; the meter badge links them.
+    del electric["servicePoints"][0]["servicePointId"]
+    summary["data"]["servicePoints"].append(
+        {"badgeNumber": "222222", "servicePointId": "CfDJ8-electric-top-level"}
+    )
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        with patch.object(
+            session, "get", return_value=MockResponse("", 200, {}, summary)
+        ):
+            point = await acc.get_service_point_number("dummy_jwt")
+        assert point == "CfDJ8-electric-top-level"
+        assert acc.usage_ids["serviceAgreementId"] == "CfDJ8-electric-agreement"
+        assert acc.usage_ids["premiseId"] == "CfDJ8-electric-premise"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "layout",
+    ["multiple_agreements", "multiple_points", "badge_mismatch", "duplicate_badge"],
+)
+async def test_service_point_fallback_rejects_ambiguous_points(datadir, layout):
+    summary = json.loads((datadir / "account_summary_multi.json").read_text())
+    electric = summary["data"]["serviceAgreements"][1]
+    electric["servicePoints"] = []
+    if layout != "multiple_agreements":
+        summary["data"]["serviceAgreements"] = [electric]
+    if layout == "multiple_points":
+        summary["data"]["servicePoints"].append(
+            {"badgeNumber": "222222", "servicePointId": "CfDJ8-electric-top-level"}
+        )
+    elif layout == "badge_mismatch":
+        electric["servicePoints"] = [{"badgeNumber": "222222"}]
+    elif layout == "duplicate_badge":
+        electric["servicePoints"] = [{"badgeNumber": "111111"}]
+        summary["data"]["servicePoints"].append(
+            {"badgeNumber": "111111", "servicePointId": "CfDJ8-another-point"}
+        )
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "old_jwt"
+        acc.service_point_number = SAMPLE_USAGE_IDS["servicePointId"]
+        with patch.object(
+            session, "get", return_value=MockResponse("", 200, {}, summary)
+        ):
+            with pytest.raises(exceptions.UsageDataFailure, match="service point"):
+                await acc.get_service_point_number("dummy_jwt")
+        assert (acc.usage_ids, acc.usage_ids_jwt, acc.service_point_number) == (
+            {},
+            None,
+            "",
+        )
+
+
+@pytest.mark.asyncio
 async def test_get_hourly_data(datadir):
     test_get_hourly_usage = json.loads((datadir / "get_hourly_usage.json").read_text())
     async with aiohttp.ClientSession() as session:

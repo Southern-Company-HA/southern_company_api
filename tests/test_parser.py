@@ -189,10 +189,28 @@ async def test_ga_power_get_jwt_no_token_anywhere():
 
 
 @pytest.mark.asyncio
-async def test_ga_power_get_accounts(datadir):
+@pytest.mark.parametrize(
+    "primary_field,primary_value,expected_primary",
+    [
+        ("isPrimaryAccount", True, True),
+        ("isPrimaryAccount", False, False),
+        ("IsPrimaryAccount", True, True),
+        ("primaryAccount", "Y", True),
+        ("PrimaryAccount", "N", False),
+    ],
+)
+async def test_ga_power_get_accounts(
+    datadir, primary_field, primary_value, expected_primary
+):
     ga_power_sample_account_response = json.loads(
         (datadir / "ga_power_sample_account_response.json").read_text()
     )
+    account = ga_power_sample_account_response["data"][0]
+    account.pop("primaryAccount")
+    account[primary_field] = primary_value
+    if primary_field.lower() == "isprimaryaccount":
+        # The current field takes precedence if a legacy field is also present.
+        account["primaryAccount"] = "N" if expected_primary else "Y"
     with patch(
         "src.southern_company_api.parser.aiohttp.ClientSession.get"
     ) as mock_get, patch(
@@ -212,6 +230,7 @@ async def test_ga_power_get_accounts(datadir):
                 sca = SouthernCompanyAPI("", "", session)
                 response_token: typing.List[Account] = await sca.get_accounts()
                 assert response_token[0].name == "Home Energy"
+                assert response_token[0].primary is expected_primary
                 assert sca._accounts == response_token
 
 
