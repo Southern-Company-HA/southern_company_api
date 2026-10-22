@@ -1,0 +1,32 @@
+{
+  "statusCode": 200,
+  "status": true,
+  "message": null,
+  "data": {
+    "accountId": "1",
+    "divisionCode": "GPC",
+    "mainPersonId": "CfDJ8-sample-person",
+    "customerName": "SAMPLE CUSTOMER",
+    "accountStatus": "Active",
+    "serviceAgreements": [
+      {
+        "serviceAgreementId": "CfDJ8-sample-agreement",
+        "serviceTypeCode": "E",
+        "serviceSubTypeCode": "RES",
+        "serviceSubTypeDescription": "Residential",
+        "statusCode": "20",
+        "isActive": true,
+        "premiseId": "CfDJ8-sample-premise",
+        "serviceAgreementType": "Electric",
+        "servicePoints": []
+      }
+    ],
+    "servicePoints": [
+      {
+        "badgeNumber": "000000",
+        "servicePointId": "CfDJ8-sample-point"
+      }
+    ]
+  },
+  "modelErrors": null
+}

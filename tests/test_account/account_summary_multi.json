@@ -1,0 +1,46 @@
+{
+  "statusCode": 200,
+  "status": true,
+  "data": {
+    "accountId": "1",
+    "divisionCode": "GPC",
+    "mainPersonId": "CfDJ8-sample-person",
+    "serviceAgreements": [
+      {
+        "serviceAgreementId": "CfDJ8-lighting-agreement",
+        "serviceTypeCode": "L",
+        "serviceSubTypeDescription": "Outdoor Lighting",
+        "isActive": true,
+        "premiseId": "CfDJ8-lighting-premise",
+        "serviceAgreementType": "Lighting",
+        "servicePoints": [
+          {
+            "badgeNumber": "111111",
+            "servicePointId": "CfDJ8-lighting-point"
+          }
+        ]
+      },
+      {
+        "serviceAgreementId": "CfDJ8-electric-agreement",
+        "serviceTypeCode": "E",
+        "serviceSubTypeDescription": "Residential",
+        "isActive": true,
+        "premiseId": "CfDJ8-electric-premise",
+        "serviceAgreementType": "Electric",
+        "servicePoints": [
+          {
+            "badgeNumber": "222222",
+            "servicePointId": "CfDJ8-electric-point"
+          }
+        ]
+      }
+    ],
+    "servicePoints": [
+      {
+        "badgeNumber": "111111",
+        "servicePointId": "CfDJ8-lighting-point"
+      }
+    ]
+  },
+  "modelErrors": null
+}

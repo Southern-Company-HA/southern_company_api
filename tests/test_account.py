@@ -5,7 +5,7 @@ from unittest.mock import patch
 import aiohttp
 import pytest
 
-from southern_company_api import Account, Company
+from southern_company_api import Account, Company, exceptions
 from tests import MockResponse
 
 
@@ -15,24 +15,75 @@ async def test_can_create():
         Account("sample", True, "1", Company.GPC, session)
 
 
+SAMPLE_USAGE_IDS = {
+    "serviceAgreementId": "CfDJ8-sample-agreement",
+    "servicePointId": "CfDJ8-sample-point",
+    "premiseId": "CfDJ8-sample-premise",
+    "personId": "CfDJ8-sample-person",
+    "operatingCompany": "GPC",
+}
+
+
+@pytest.mark.asyncio
+async def test_get_service_point_number(datadir):
+    account_summary = json.loads((datadir / "account_summary.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", account_summary)
+            service_point = await acc.get_service_point_number("dummy_jwt")
+        # servicePointId lives in a sibling array, not inside the agreement
+        assert service_point == "CfDJ8-sample-point"
+        assert acc.usage_ids["serviceAgreementId"] == "CfDJ8-sample-agreement"
+        assert acc.usage_ids["premiseId"] == "CfDJ8-sample-premise"
+        assert acc.usage_ids["personId"] == "CfDJ8-sample-person"
+        assert acc.usage_ids["operatingCompany"] == "GPC"
+
+
+@pytest.mark.asyncio
+async def test_get_service_point_number_picks_electric_agreement(datadir):
+    """All ids must come from one agreement -- the electric one."""
+    account_summary = json.loads((datadir / "account_summary_multi.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", account_summary)
+            service_point = await acc.get_service_point_number("dummy_jwt")
+        # The lighting agreement is listed first and has its own premise and
+        # service point; none of its ids may leak into the resolved set.
+        assert acc.usage_ids["serviceAgreementId"] == "CfDJ8-electric-agreement"
+        assert acc.usage_ids["premiseId"] == "CfDJ8-electric-premise"
+        assert service_point == "CfDJ8-electric-point"
+
+
 @pytest.mark.asyncio
 async def test_get_hourly_data(datadir):
     test_get_hourly_usage = json.loads((datadir / "get_hourly_usage.json").read_text())
     async with aiohttp.ClientSession() as session:
         acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
         with patch(
             "src.southern_company_api.account.aiohttp.ClientSession.get"
-        ) as mock_get, patch(
-            "southern_company_api.account.Account.get_service_point_number"
-        ) as mock_get_service_point:
+        ) as mock_get:
             mock_get.return_value = MockResponse("", 200, "", test_get_hourly_usage)
-            mock_get_service_point.return_value.__aenter__.return_value = ""
             await acc.get_hourly_data(
                 datetime.datetime.now() - datetime.timedelta(days=3),
                 datetime.datetime.now() - datetime.timedelta(days=2, hours=22),
                 "dummy_jwt",
             )
-            assert len(list(acc.hourly_data.values())) == 2
+            hours = acc.hourly_data
+            assert len(hours) == 3
+            # plain series wins over the delayed duplicate for the first hour
+            assert hours["2023-02-04T22:50:11"].usage == 0.32
+            # a delayed zero is "not reported yet", not a 0 kWh hour
+            pending = hours["2023-02-05T00:50:11"]
+            assert pending.usage is None and pending.cost is None
+            assert pending.temp == 43.5
 
 
 @pytest.mark.asyncio
@@ -40,13 +91,12 @@ async def test_ga_power_get_monthly_data(datadir):
     test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
     async with aiohttp.ClientSession() as session:
         acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
         with patch(
             "src.southern_company_api.account.aiohttp.ClientSession.get"
-        ) as mock_get, patch(
-            "southern_company_api.account.Account.get_service_point_number"
-        ) as mock_get_service_point:
+        ) as mock_get:
             mock_get.return_value = MockResponse("", 200, "", test_get_month_data)
-            mock_get_service_point.return_value.__aenter__.return_value = ""
             month = await acc.get_month_data("dummy_jwt")
         assert month.total_kwh_used == 97.0
         assert month.dollars_to_date == 13.974766406622413
@@ -56,3 +106,201 @@ async def test_ga_power_get_monthly_data(datadir):
         assert month.projected_usage_low == 419.0
         assert month.projected_bill_amount_high == 91.0
         assert month.projected_bill_amount_low == 60.0
+
+
+def _usage_url(mock_get, call):
+    return mock_get.call_args_list[call].args[0]
+
+
+@pytest.mark.asyncio
+async def test_usage_ids_reused_under_same_jwt(datadir):
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", test_get_month_data)
+            await acc.get_month_data("dummy_jwt")
+        assert mock_get.call_count == 1
+        assert "UsageGraphData" in _usage_url(mock_get, 0)
+
+
+@pytest.mark.asyncio
+async def test_usage_ids_refreshed_on_new_jwt(datadir):
+    """Ids resolved under an expired JWT are not sent with its replacement."""
+    account_summary = json.loads((datadir / "account_summary.json").read_text())
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS, serviceAgreementId="CfDJ8-stale")
+        acc.usage_ids_jwt = "old_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.side_effect = [
+                MockResponse("", 200, "", account_summary),
+                MockResponse("", 200, "", test_get_month_data),
+            ]
+            month = await acc.get_month_data("new_jwt")
+        assert month.total_kwh_used == 97.0
+        assert _usage_url(mock_get, 0).endswith("/Summary")
+        assert "CfDJ8-sample-agreement" in _usage_url(mock_get, 1)
+        auth = mock_get.call_args_list[1].kwargs["headers"]["Authorization"]
+        assert auth == "Bearer new_jwt"
+        assert acc.usage_ids_jwt == "new_jwt"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 500])
+async def test_usage_ids_refreshed_on_rejection(datadir, status):
+    """A rejection with cached ids re-resolves them once and retries.
+
+    SoCo answers an id it cannot decrypt with a 500, not a 401.
+    """
+    account_summary = json.loads((datadir / "account_summary.json").read_text())
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS, serviceAgreementId="CfDJ8-stale")
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.side_effect = [
+                MockResponse("", status, "", None),
+                MockResponse("", 200, "", account_summary),
+                MockResponse("", 200, "", test_get_month_data),
+            ]
+            month = await acc.get_month_data("dummy_jwt")
+        assert month.total_kwh_used == 97.0
+        assert "CfDJ8-stale" in _usage_url(mock_get, 0)
+        assert _usage_url(mock_get, 1).endswith("/Summary")
+        assert "CfDJ8-sample-agreement" in _usage_url(mock_get, 2)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 500])
+async def test_usage_rejection_after_refresh_raises(datadir, status):
+    account_summary = json.loads((datadir / "account_summary.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.side_effect = [
+                MockResponse("", status, "", None),
+                MockResponse("", 200, "", account_summary),
+                MockResponse("", status, "", None),
+            ]
+            with pytest.raises(exceptions.UsageDataFailure):
+                await acc.get_month_data("dummy_jwt")
+        assert mock_get.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_get_month_data_without_totals_raises():
+    """An envelope with no summary fields is a failure, not eight zeros."""
+    empty_graph = {"statusCode": 200, "status": True, "data": {"data": {}}}
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", empty_graph)
+            with pytest.raises(exceptions.UsageDataFailure, match="dollarsToDate"):
+                await acc.get_month_data("dummy_jwt")
+
+
+@pytest.mark.asyncio
+async def test_get_month_data_without_reads_raises():
+    """What SoCo really sends for a window with no reads: hasData false, zeros."""
+    no_reads = {
+        "statusCode": 200,
+        "status": True,
+        "data": {
+            "hasData": False,
+            "dollarsToDate": 0,
+            "totalkWhUsed": 0,
+            "averageDailyUsage": 0,
+            "averageDailyCost": 0,
+            "projectedUsageLow": 0,
+            "days": 0,
+            "data": {},
+        },
+    }
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", no_reads)
+            with pytest.raises(exceptions.UsageDataFailure, match="No month data"):
+                await acc.get_month_data("dummy_jwt")
+
+
+@pytest.mark.asyncio
+async def test_get_month_data_without_projections(datadir):
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    for key in (
+        "projectedBillAmountHigh",
+        "projectedBillAmountLow",
+        "projectedUsageHigh",
+        "projectedUsageLow",
+    ):
+        del test_get_month_data["data"][key]
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get:
+            mock_get.return_value = MockResponse("", 200, "", test_get_month_data)
+            month = await acc.get_month_data("dummy_jwt")
+        assert month.total_kwh_used == 97.0
+        assert month.projected_usage_low is None
+        assert month.projected_bill_amount_high is None
+
+
+class _FixedNow(datetime.datetime):
+    fixed = datetime.datetime(2026, 10, 1, 9, 30)
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.fixed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "now, start",
+    [
+        # SoCo rejects a same-date window, so the 1st reaches back a day
+        (datetime.datetime(2026, 10, 1, 9, 30), "09/30/2026"),
+        (datetime.datetime(2026, 10, 13, 9, 30), "10/01/2026"),
+    ],
+)
+async def test_get_month_data_window(datadir, now, start):
+    test_get_month_data = json.loads((datadir / "get_monthly_usage.json").read_text())
+    async with aiohttp.ClientSession() as session:
+        acc = Account("sample", True, "1", Company.GPC, session)
+        acc.usage_ids = dict(SAMPLE_USAGE_IDS)
+        acc.usage_ids_jwt = "dummy_jwt"
+        with patch(
+            "src.southern_company_api.account.aiohttp.ClientSession.get"
+        ) as mock_get, patch.object(_FixedNow, "fixed", now), patch(
+            "src.southern_company_api.account.datetime.datetime", _FixedNow
+        ):
+            mock_get.return_value = MockResponse("", 200, "", test_get_month_data)
+            await acc.get_month_data("dummy_jwt")
+        params = mock_get.call_args.kwargs["params"]
+        assert params["startDate"] == start
+        assert params["endDate"] == now.strftime("%m/%d/%Y")

@@ -12,7 +12,7 @@ from aiohttp import ClientSession, ContentTypeError
 
 from southern_company_api.account import Account
 
-from .company import COMPANY_MAP, Company
+from ._helpers import company_from, first
 from .constants import (
     API_HEADERS,
     DOWNSTREAM_HEADERS,
@@ -37,6 +37,7 @@ from .exceptions import (
 _LOGGER = logging.getLogger(__name__)
 
 _JWT_RE = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+_JWT_COOKIE_RE = re.compile(r"ScJwtToken=(\S*);", re.IGNORECASE)
 _SC_ATTR_RE = re.compile(
     r"""name\s*=\s*['"]ScWebToken['"][^>]*?value\s*=\s*['"]([^'"]+)['"]""",
     re.IGNORECASE,
@@ -110,6 +111,30 @@ async def get_request_verification_token(session: ClientSession) -> str:
     if len(matches) < 1:
         raise NoRequestTokenFound()
     return matches[0]
+
+
+def _jwt_from_response(resp: aiohttp.ClientResponse) -> typing.Optional[str]:
+    """Pull the session JWT out of a JwtToken response.
+
+    Southern Company stopped setting the ``ScJwtToken`` cookie in September
+    2026; the endpoint answers 200 with a ``{"StatusCode": 200, "Data": null}``
+    body and returns the token in a bare response header instead. The web app
+    reads exactly these headers, preferring ``ScJwtToken`` and falling back to
+    ``ScSoftAuthJwtToken``, so try the cookie first (older behaviour) and then
+    the headers, then the body.
+    """
+    cookies = resp.headers.get("set-cookie")
+    if cookies:
+        matches = _JWT_COOKIE_RE.search(cookies)
+        if matches and matches.group(1):
+            return matches.group(1)
+
+    for header in ("ScJwtToken", "ScSoftAuthJwtToken"):
+        value = resp.headers.get(header)
+        if value and _JWT_RE.fullmatch(value.strip()):
+            return value.strip()
+
+    return None
 
 
 class SouthernCompanyAPI:
@@ -325,24 +350,13 @@ class SouthernCompanyAPI:
                     f"Failed to get JWT: {resp.status} {await resp.text()} "
                     f"{headers}"
                 )
-            # Regex to parse JWT out of headers
-            regex = re.compile(r"ScJwtToken=(\S*);", re.IGNORECASE)
-
-            # Parsing response header to get token
-            cookies = resp.headers.get("set-cookie")
-            if cookies:
-                matches = regex.search(cookies)
-
-                # Checking for matches
-                if matches and matches.group(1):
-                    token = matches.group(1)
-                else:
-                    raise NoJwtTokenFound(
-                        "Failed to get JWT: Could not find any token matches in "
-                        "headers"
-                    )
-            else:
-                raise NoJwtTokenFound("Failed to get JWT: No cookies were sent back.")
+            token = _jwt_from_response(resp)
+            if token is None:
+                raise NoJwtTokenFound(
+                    "Failed to get JWT: no token in set-cookie, in the "
+                    "ScJwtToken/ScSoftAuthJwtToken response headers, or in the "
+                    f"body. Headers seen: {sorted(resp.headers.keys())}"
+                )
 
         # Returning JWT
         self._jwt = token
@@ -356,7 +370,7 @@ class SouthernCompanyAPI:
                 f"Can't get jwt. Expired and not refreshed jwt: {self._jwt}"
             )
         headers = dict(API_HEADERS)
-        headers["Authorization"] = f"bearer {self._jwt}"
+        headers["Authorization"] = f"Bearer {self._jwt}"
         async with self.session.get(
             GET_ALL_ACCOUNTS_URL,
             headers=headers,
@@ -377,14 +391,28 @@ class SouthernCompanyAPI:
                 ) from err
             accounts = []
             try:
-                account_list = account_json["Data"]
+                # The OCC estate returns camelCase; the retired API used
+                # PascalCase. Accept either so a mixed rollout cannot break us.
+                account_list = account_json.get("data")
+                if account_list is None:
+                    account_list = account_json["Data"]
                 for account in account_list:
+                    number = first(account, "accountNumber", "AccountNumber")
                     accounts.append(
                         Account(
-                            name=account["Description"],
-                            primary=account["PrimaryAccount"] == "Y",
-                            number=account["AccountNumber"],
-                            company=COMPANY_MAP.get(account["Company"], Company.GPC),
+                            name=first(
+                                account,
+                                "description",
+                                "Description",
+                                "accountName",
+                                default=f"Account {number}",
+                            ),
+                            primary=first(account, "primaryAccount", "PrimaryAccount")
+                            in ("Y", "y", True),
+                            number=str(number),
+                            company=company_from(
+                                first(account, "company", "Company", "divisionCode")
+                            ),
                             session=self.session,
                         )
                     )
