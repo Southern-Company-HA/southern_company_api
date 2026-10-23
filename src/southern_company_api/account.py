@@ -4,6 +4,7 @@ import json
 import logging
 import math
 from typing import Any, Dict, List, Mapping, Optional
+from zoneinfo import ZoneInfo
 
 import aiohttp
 from aiohttp import ContentTypeError
@@ -16,7 +17,7 @@ from ._helpers import (
     series_points,
     unwrap,
 )
-from .company import Company
+from .company import COMPANY_TIMEZONE, Company
 from .constants import ACCOUNT_SUMMARY_URL, API_HEADERS, USAGE_GRAPH_DATA_URL
 from .exceptions import CantReachSouthernCompany, UsageDataFailure
 
@@ -111,7 +112,7 @@ class DailyEnergyUsageList:
 
         days = [
             DailyEnergyUsage(
-                # TODO: Determine timezone
+                # A naive local calendar date; see Account.timezone.
                 date=datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S"),
                 usage=usage.get(date),
                 cost=cost.get(date),
@@ -147,6 +148,11 @@ class Account:
         # expiry but keeps this Account, so ids are only reused with the token
         # that fetched them.
         self.usage_ids_jwt: Optional[str] = None
+
+    @property
+    def timezone(self) -> ZoneInfo:
+        """The timezone usage labels (hourly times, daily dates) are local to."""
+        return ZoneInfo(COMPANY_TIMEZONE.get(self.company, "America/New_York"))
 
     def _headers(self, jwt: str) -> Dict[str, str]:
         headers = dict(API_HEADERS)
@@ -405,10 +411,10 @@ class Account:
 
         return_dates = []
         for date in graph_labels(graph):
-            # TODO: Determine timezone
-            parsed_date = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S")
-            parsed_date = parsed_date.replace(
-                tzinfo=datetime.timezone(datetime.timedelta(hours=-5), "EST")
+            # Labels are local wall-clock hours: spring-forward has no 02:00
+            # and the repeated fall-back hour is merged into one 01:00 label.
+            parsed_date = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S").replace(
+                tzinfo=self.timezone
             )
             self.hourly_data[date] = HourlyEnergyUsage(
                 time=parsed_date,

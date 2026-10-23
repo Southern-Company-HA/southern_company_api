@@ -1,6 +1,7 @@
 import datetime
 import json
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import aiohttp
 import pytest
@@ -143,6 +144,21 @@ async def test_get_hourly_data(datadir):
             pending = hours["2023-02-05T00:50:11"]
             assert pending.usage is None and pending.cost is None
             assert pending.temp == 43.5
+            # Labels are local Eastern time, not a fixed UTC-5.
+            assert hours["2023-02-04T22:50:11"].time == datetime.datetime(
+                2023, 2, 4, 22, 50, 11, tzinfo=ZoneInfo("America/New_York")
+            )
+
+
+@pytest.mark.parametrize(
+    "company,winter,summer",
+    [(Company.GPC, -5, -4), (Company.APC, -6, -5), (Company.MPC, -6, -5)],
+)
+def test_account_timezone_follows_dst(company, winter, summer):
+    tz = Account("sample", True, "1", company, None).timezone
+    for month, hours in [(1, winter), (7, summer)]:
+        offset = datetime.datetime(2026, month, 1, 12, tzinfo=tz).utcoffset()
+        assert offset == datetime.timedelta(hours=hours)
 
 
 @pytest.mark.asyncio
