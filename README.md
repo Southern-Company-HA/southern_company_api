@@ -42,6 +42,7 @@ Control Southern company websites with this api
 
 ```python
 import asyncio
+import datetime
 import aiohttp
 from southern_company_api import SouthernCompanyAPI
 
@@ -49,6 +50,8 @@ async def main():
     async with aiohttp.ClientSession() as session:
         api = SouthernCompanyAPI("username", "password", session)
         await api.connect()
+        end = datetime.datetime.now()
+        start = end - datetime.timedelta(days=30)
         for account in await api.accounts:
             usage = await account.get_daily_data(start, end, await api.jwt)
             print(usage)
